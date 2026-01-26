@@ -1,0 +1,3 @@
+﻿Build path: A:/CODE/unity_builds/tsunami
+Build number: 11
+PluginYG version: 2.007

@@ -1,0 +1,176 @@
+{
+    "balanceCount": 1,
+    "balanceScaler": "M",
+    "Brainrots": [],
+    "PlayerSpeedLevel": 0,
+    "PurchasedSafeZones": [],
+    "PlacedBrainrots": [
+        {
+            "placementID": 1,
+            "brainrotName": "TralaleroTralala",
+            "level": 0,
+            "rarity": "Common",
+            "baseIncome": 10
+        },
+        {
+            "placementID": 0,
+            "brainrotName": "TralaleroTralala",
+            "level": 0,
+            "rarity": "Common",
+            "baseIncome": 10
+        },
+        {
+            "placementID": 6,
+            "brainrotName": "TorrtuginniDragonfrutini",
+            "level": 0,
+            "rarity": "Common",
+            "baseIncome": 100
+        },
+        {
+            "placementID": 3,
+            "brainrotName": "TralaleroTralala",
+            "level": 0,
+            "rarity": "Common",
+            "baseIncome": 10
+        },
+        {
+            "placementID": 11,
+            "brainrotName": "JobJobJobSahur",
+            "level": 0,
+            "rarity": "Rare",
+            "baseIncome": 291
+        },
+        {
+            "placementID": 10,
+            "brainrotName": "Pakrahmatmamat",
+            "level": 0,
+            "rarity": "Common",
+            "baseIncome": 446
+        },
+        {
+            "placementID": 15,
+            "brainrotName": "JobJobJobSahur",
+            "level": 0,
+            "rarity": "Rare",
+            "baseIncome": 291
+        },
+        {
+            "placementID": 7,
+            "brainrotName": "ChimpanziniBananini",
+            "level": 0,
+            "rarity": "Common",
+            "baseIncome": 918
+        },
+        {
+            "placementID": 12,
+            "brainrotName": "KetupatKepat",
+            "level": 0,
+            "rarity": "Rare",
+            "baseIncome": 435
+        },
+        {
+            "placementID": 2,
+            "brainrotName": "KetupatKepat",
+            "level": 0,
+            "rarity": "Common",
+            "baseIncome": 711
+        },
+        {
+            "placementID": 4,
+            "brainrotName": "DragonCannelloni",
+            "level": 0,
+            "rarity": "Common",
+            "baseIncome": 646
+        },
+        {
+            "placementID": 5,
+            "brainrotName": "DragonCannelloni",
+            "level": 0,
+            "rarity": "Common",
+            "baseIncome": 646
+        },
+        {
+            "placementID": 14,
+            "brainrotName": "SpioniroGolubiro",
+            "level": 0,
+            "rarity": "Common",
+            "baseIncome": 832
+        },
+        {
+            "placementID": 13,
+            "brainrotName": "SpioniroGolubiro",
+            "level": 0,
+            "rarity": "Common",
+            "baseIncome": 832
+        }
+    ],
+    "EarnPanelBalances": [
+        {
+            "panelID": 3,
+            "accumulatedBalance": 920.0
+        },
+        {
+            "panelID": 2,
+            "accumulatedBalance": 7821.0
+        },
+        {
+            "panelID": 4,
+            "accumulatedBalance": 29716.0
+        },
+        {
+            "panelID": 5,
+            "accumulatedBalance": 19380.0
+        },
+        {
+            "panelID": 1,
+            "accumulatedBalance": 40.0
+        },
+        {
+            "panelID": 0,
+            "accumulatedBalance": 910.0
+        },
+        {
+            "panelID": 6,
+            "accumulatedBalance": 9700.0
+        },
+        {
+            "panelID": 7,
+            "accumulatedBalance": 15606.0
+        },
+        {
+            "panelID": 11,
+            "accumulatedBalance": 43650.0
+        },
+        {
+            "panelID": 10,
+            "accumulatedBalance": 20516.0
+        },
+        {
+            "panelID": 14,
+            "accumulatedBalance": 0.0
+        },
+        {
+            "panelID": 15,
+            "accumulatedBalance": 269175.0
+        },
+        {
+            "panelID": 12,
+            "accumulatedBalance": 154425.0
+        },
+        {
+            "panelID": 13,
+            "accumulatedBalance": 0.0
+        }
+    ],
+    "AttackPowerLevel": 0,
+    "CurrentUltimate": "IsStrongBeat1",
+    "intExample": 5,
+    "strExample": "Hello!",
+    "boolExample": [
+        false,
+        false,
+        false,
+        false
+    ],
+    "idSave": 27644
+}
