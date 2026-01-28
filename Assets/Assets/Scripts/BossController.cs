@@ -259,15 +259,20 @@ public class BossController : MonoBehaviour
             return;
         }
         
-        // Удаляем старую модель если есть (кроме самого transform)
+        // ВАЖНО: Удаляем старую модель если есть (включая все дочерние объекты)
+        // Это гарантирует, что не будет нескольких моделей босса
         for (int i = transform.childCount - 1; i >= 0; i--)
         {
             Transform child = transform.GetChild(i);
-            if (child != modelTransform || modelTransform == transform)
+            if (child != null && child.gameObject != null)
             {
-                Destroy(child.gameObject);
+                // Удаляем все дочерние объекты, включая старые модели
+                DestroyImmediate(child.gameObject);
             }
         }
+        
+        // Сбрасываем ссылку на modelTransform, так как старая модель удалена
+        modelTransform = null;
         
         // Создаем копию всего брейнрота как дочерний объект
         // ВАЖНО: Создаем без родителя сначала, чтобы масштаб не искажался
@@ -353,6 +358,7 @@ public class BossController : MonoBehaviour
             
             // Список исключений - эти модели НЕ нужно поворачивать
             // DragonCannelloni убран из списка - теперь поворачивается на 180Y при битве
+            // ballerinacaputchina убран из списка - теперь поворачивается на 180Y при битве
             string[] excludedNames = { "67", "BisonteGiuppitere", "KetupatKepat", "BlackholeGoat", "AdminLuckyBlock" };
             
             // Проверяем, есть ли имя в списке исключений
@@ -894,12 +900,26 @@ public class BossController : MonoBehaviour
         currentTarget = null;
         availableTargets.Clear();
         
+        // ВАЖНО: Удаляем все дочерние объекты (визуальные модели босса)
+        // Это гарантирует, что не будет накопления старых моделей
+        for (int i = transform.childCount - 1; i >= 0; i--)
+        {
+            Transform child = transform.GetChild(i);
+            if (child != null && child.gameObject != null)
+            {
+                DestroyImmediate(child.gameObject);
+            }
+        }
+        
+        // Сбрасываем ссылку на modelTransform
+        modelTransform = null;
+        
         // Скрываем босса
         gameObject.SetActive(false);
         
         if (debug)
         {
-            Debug.Log("[BossController] Босс сброшен и скрыт");
+            Debug.Log("[BossController] Босс сброшен, все модели удалены и скрыт");
         }
     }
     

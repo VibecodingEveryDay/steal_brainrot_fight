@@ -117,6 +117,44 @@ public class Guide : MonoBehaviour
         if (guidanceLineScript == null)
             return;
         
+        // ВАЖНО: Проверяем, идет ли битва с боссом
+        // Если битва активна, направляем линию на босса
+        if (BattleManager.Instance != null && BattleManager.Instance.IsBattleActive())
+        {
+            // Находим BossController
+            BossController bossController = FindFirstObjectByType<BossController>();
+            
+            if (bossController != null && bossController.transform != null)
+            {
+                // Включаем линию, если она была скрыта
+                LineRenderer lineRenderer = guidanceLineInstance?.GetComponent<LineRenderer>();
+                if (lineRenderer != null)
+                {
+                    lineRenderer.enabled = true;
+                }
+                
+                // Устанавливаем endPos на босса
+                Transform currentEndPoint = guidanceLineScript.GetEndPoint();
+                if (currentEndPoint != bossController.transform)
+                {
+                    guidanceLineScript.SetEndPoint(bossController.transform);
+                }
+            }
+            else
+            {
+                // Если босс не найден, скрываем линию
+                LineRenderer lineRenderer = guidanceLineInstance?.GetComponent<LineRenderer>();
+                if (lineRenderer != null)
+                {
+                    lineRenderer.enabled = false;
+                }
+            }
+            
+            // Выходим из метода - во время битвы не используем стандартное поведение
+            return;
+        }
+        
+        // Стандартное поведение (когда битва не активна)
         // Проверяем, есть ли брейнрот в руках
         bool hasBrainrotInHands = false;
         

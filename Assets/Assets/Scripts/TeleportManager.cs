@@ -502,6 +502,15 @@ public class TeleportManager : MonoBehaviour
             // Сбрасываем камеру после телепортации
             ResetCameraAfterTeleport();
             
+            // ВАЖНО: Обновляем видимость брейнротов после телепортации
+            // Это гарантирует, что модельки брейнротов будут видны после перемещения игрока
+            BrainrotDistanceHider distanceHider = FindFirstObjectByType<BrainrotDistanceHider>();
+            if (distanceHider != null)
+            {
+                distanceHider.ForceRefresh();
+                Debug.Log("[TeleportManager] Видимость брейнротов обновлена после телепортации");
+            }
+            
             // Ждем еще один кадр после сброса камеры
             yield return null;
             
@@ -598,6 +607,14 @@ public class TeleportManager : MonoBehaviour
         // Сбрасываем камеру после телепортации
         ResetCameraAfterTeleport();
         
+        // ВАЖНО: Обновляем видимость брейнротов после телепортации
+        BrainrotDistanceHider distanceHider = FindFirstObjectByType<BrainrotDistanceHider>();
+        if (distanceHider != null)
+        {
+            distanceHider.ForceRefresh();
+            Debug.Log("[TeleportManager] Видимость брейнротов обновлена после телепортации");
+        }
+        
         // Ждем еще один кадр после сброса камеры
         yield return null;
         
@@ -630,6 +647,14 @@ public class TeleportManager : MonoBehaviour
         
         // Сбрасываем камеру после телепортации
         ResetCameraAfterTeleport();
+        
+        // ВАЖНО: Обновляем видимость брейнротов после телепортации
+        BrainrotDistanceHider distanceHider = FindFirstObjectByType<BrainrotDistanceHider>();
+        if (distanceHider != null)
+        {
+            distanceHider.ForceRefresh();
+            Debug.Log("[TeleportManager] Видимость брейнротов обновлена после телепортации в лобби");
+        }
         
         // Ждем еще один кадр после сброса камеры
         yield return null;

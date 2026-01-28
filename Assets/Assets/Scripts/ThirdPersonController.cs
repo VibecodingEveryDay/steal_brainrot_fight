@@ -232,6 +232,12 @@ public class ThirdPersonController : MonoBehaviour
     
     private void Update()
     {
+        // Проверяем, что CharacterController активен и не null перед выполнением обновлений
+        if (characterController == null || !characterController.enabled || !gameObject.activeInHierarchy)
+        {
+            return;
+        }
+        
         // Периодически проверяем готовность игры, пока она не готова
         if (!isGameReady)
         {
@@ -357,8 +363,11 @@ public class ThirdPersonController : MonoBehaviour
         // Применяем движение через CharacterController
         if (moveDirection.magnitude > 0.1f)
         {
-            // Движение
+            // Движение - проверяем, что CharacterController активен перед вызовом Move
+            if (characterController != null && characterController.enabled)
+            {
             characterController.Move(moveDirection * moveSpeed * Time.deltaTime);
+            }
             
             // Плавный поворот корневого объекта в сторону движения
             Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
@@ -471,6 +480,12 @@ public class ThirdPersonController : MonoBehaviour
     
     private void ApplyGravity()
     {
+        // Проверяем, что CharacterController активен и не null
+        if (characterController == null || !characterController.enabled || !gameObject.activeInHierarchy)
+        {
+            return;
+        }
+        
         // Применяем гравитацию
         velocity.y += gravity * Time.deltaTime;
         
@@ -482,6 +497,14 @@ public class ThirdPersonController : MonoBehaviour
     {
         if (animator != null)
         {
+            // ВАЖНО: Проверяем, находится ли игрок в области дома
+            // Если да, не обновляем аниматор (отключаем анимацию)
+            if (IsPlayerInHouseArea())
+            {
+                // Игрок в области дома - не обновляем аниматор
+                return;
+            }
+            
             // Обновляем параметр Speed
             animator.SetFloat(SpeedHash, currentSpeed);
             
@@ -648,5 +671,52 @@ public class ThirdPersonController : MonoBehaviour
     public float CalculateSpeedFromLevel(int level)
     {
         return baseMoveSpeed + (level * speedLevelScaler);
+    }
+    
+    /// <summary>
+    /// Проверяет, находится ли игрок в области дома
+    /// </summary>
+    private bool IsPlayerInHouseArea()
+    {
+        // Получаем TeleportManager для доступа к housePos
+        TeleportManager teleportManager = TeleportManager.Instance;
+        if (teleportManager == null)
+        {
+            return false;
+        }
+        
+        // Получаем housePos через рефлексию (так как поле приватное)
+        System.Reflection.FieldInfo housePosField = typeof(TeleportManager).GetField("housePos", 
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        
+        if (housePosField == null)
+        {
+            return false;
+        }
+        
+        Transform housePos = housePosField.GetValue(teleportManager) as Transform;
+        if (housePos == null)
+        {
+            return false;
+        }
+        
+        // Получаем позицию и масштаб области дома
+        Vector3 housePosition = housePos.position;
+        Vector3 houseScale = housePos.localScale;
+        
+        // Вычисляем границы области дома (используем масштаб как размер области)
+        float halfWidth = houseScale.x / 2f;
+        float halfHeight = houseScale.y / 2f;
+        float halfDepth = houseScale.z / 2f;
+        
+        // Получаем позицию игрока
+        Vector3 playerPosition = transform.position;
+        
+        // Проверяем, находится ли игрок в пределах области дома
+        bool inXRange = Mathf.Abs(playerPosition.x - housePosition.x) <= halfWidth;
+        bool inYRange = Mathf.Abs(playerPosition.y - housePosition.y) <= halfHeight;
+        bool inZRange = Mathf.Abs(playerPosition.z - housePosition.z) <= halfDepth;
+        
+        return inXRange && inYRange && inZRange;
     }
 }

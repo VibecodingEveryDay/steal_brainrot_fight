@@ -218,5 +218,79 @@ public class BrainrotDistanceHider : MonoBehaviour
         if (playerTransform != null) return;
         FindPlayer();
     }
+    
+    /// <summary>
+    /// Принудительно обновляет видимость всех брейнротов (полезно после телепортации)
+    /// </summary>
+    public void ForceRefresh()
+    {
+        // Сбрасываем таймеры, чтобы обновление произошло немедленно
+        timer = 0f;
+        
+        // ВАЖНО: Пересобираем кэш, чтобы убедиться, что все брейнроты учтены
+        RebuildCache();
+        
+        // ВАЖНО: Сначала принудительно показываем все брейнроты (включаем рендереры)
+        // Это гарантирует, что они будут видны, даже если система считает их скрытыми
+        for (int i = 0; i < entries.Count; i++)
+        {
+            Entry e = entries[i];
+            if (e.brainrot == null)
+            {
+                continue;
+            }
+            
+            // Пропускаем брейнроты в руках
+            if (ignoreCarriedBrainrots && e.brainrot.IsCarried())
+            {
+                continue;
+            }
+            
+            // Принудительно показываем все рендереры
+            if (e.renderers != null)
+            {
+                for (int r = 0; r < e.renderers.Length; r++)
+                {
+                    if (e.renderers[r] != null)
+                    {
+                        e.renderers[r].enabled = true;
+                    }
+                }
+            }
+            
+            // Принудительно включаем коллайдеры, если они были отключены
+            if (disableCollidersWhenHidden && e.colliders != null)
+            {
+                for (int c = 0; c < e.colliders.Length; c++)
+                {
+                    if (e.colliders[c] != null)
+                    {
+                        e.colliders[c].enabled = true;
+                    }
+                }
+            }
+            
+            // Если используется режим DisableGameObject, активируем объект
+            if (hideMode == HideMode.DisableGameObject)
+            {
+                if (e.brainrot.gameObject != null)
+                {
+                    e.brainrot.gameObject.SetActive(true);
+                }
+            }
+            
+            // Сбрасываем флаг скрытости, чтобы система пересчитала видимость
+            e.currentlyHidden = false;
+            entries[i] = e;
+        }
+        
+        // Немедленно обновляем видимость (теперь система правильно скроет те, что далеко)
+        RefreshNow();
+        
+        if (debug)
+        {
+            Debug.Log($"[BrainrotDistanceHider] ForceRefresh вызван - кэш пересобран, все брейнроты принудительно показаны, затем видимость пересчитана. Всего брейнротов: {entries.Count}");
+        }
+    }
 }
 

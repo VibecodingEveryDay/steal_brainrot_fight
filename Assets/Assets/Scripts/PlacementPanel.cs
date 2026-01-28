@@ -44,6 +44,9 @@ public class PlacementPanel : InteractableObject
     // Размещённый brainrot объект на этой панели
     private BrainrotObject placedBrainrot = null;
     
+    // Флаг, указывающий, что идет процесс размещения объекта на панели
+    private bool isPlacingObject = false;
+    
     private Collider panelCollider;
     
     // Флаг, указывающий, является ли эта панель ближайшей к игроку
@@ -51,6 +54,9 @@ public class PlacementPanel : InteractableObject
     
     // Флаг, указывающий, идет ли загрузка размещенных брейнротов (чтобы не сохранять при загрузке)
     private bool isLoadingPlacedBrainrots = false;
+    
+    // Флаг, указывающий, что объект только что был взят из панели (чтобы предотвратить немедленное размещение обратно)
+    private bool justTookFromPanel = false;
     
     private void Awake()
     {
@@ -325,19 +331,20 @@ public class PlacementPanel : InteractableObject
         
         // ВАЖНО: Проверяем размещённый brainrot ПОСЛЕ определения ближайшей панели
         // Это предотвращает очистку ссылки во время размещения
-        // ВАЖНО: НЕ проверяем для ближайшей панели, если на ней идет процесс размещения
-        // (определяется по тому, что placedBrainrot != null и объект еще isCarried)
+        // ВАЖНО: НЕ проверяем, если идет процесс размещения объекта на этой панели
         // Также НЕ проверяем, если объект только что размещен (isPlaced = true и !isCarried)
         bool isPlacing = isClosestPanel && placedBrainrot != null && placedBrainrot.IsCarried();
         bool justPlaced = isClosestPanel && placedBrainrot != null && placedBrainrot.IsPlaced() && !placedBrainrot.IsCarried();
-        if (!isPlacing && !justPlaced)
+        if (!isPlacing && !justPlaced && !isPlacingObject)
         {
             // Проверяем для всех панелей, кроме случая когда идет размещение на ближайшей панели
-            // или когда объект только что размещен
-            CheckPlacedBrainrot();
+            // или когда объект только что размещен, или когда идет процесс размещения
+        CheckPlacedBrainrot();
         }
         
         // Проверяем, есть ли brainrot в руках у игрока
+        // ВАЖНО: Проверяем состояние через PlayerCarryController, но также учитываем состояние размещенного объекта
+        // Если объект размещен на панели, он не должен считаться в руках, даже если GetCurrentCarriedObject() еще возвращает его
         bool hasBrainrotInHands = false;
         if (playerCarryController == null)
         {
@@ -345,7 +352,14 @@ public class PlacementPanel : InteractableObject
         }
         if (playerCarryController != null)
         {
-            hasBrainrotInHands = playerCarryController.GetCurrentCarriedObject() != null;
+            BrainrotObject carriedObject = playerCarryController.GetCurrentCarriedObject();
+            // ВАЖНО: Объект считается в руках только если он действительно в руках (IsCarried() == true)
+            // Это предотвращает проблему, когда GetCurrentCarriedObject() возвращает объект, который уже размещен
+            if (carriedObject != null)
+            {
+                // Проверяем состояние объекта напрямую
+                hasBrainrotInHands = carriedObject.IsCarried();
+            }
         }
         
         // ВАЖНО: Проверяем, должны ли мы показать UI (предварительная проверка)
@@ -740,14 +754,33 @@ public class PlacementPanel : InteractableObject
         
         if (carriedObject != null)
         {
+            // ВАЖНО: Если объект только что был взят из этой панели, не размещаем его обратно сразу
+            // Это предотвращает проблему, когда объект сразу возвращается в placement после взятия
+            if (justTookFromPanel)
+            {
+                // Сбрасываем флаг и состояние взаимодействия
+                justTookFromPanel = false;
+                ResetInteraction();
+                return;
+            }
+            
             // ВАЖНО: Проверяем, что на панели нет размещённого брейнрота
             // Нельзя разместить брейнрот, если на панели уже есть размещённый брейнрот
-            if (placedBrainrot != null)
+            // НО: Если placedBrainrot указывает на объект, который сейчас в руках (IsCarried() == true),
+            // это означает, что объект был взят из панели, и мы можем разместить его обратно
+            if (placedBrainrot != null && !placedBrainrot.IsCarried())
             {
                 Debug.LogWarning($"[PlacementPanel] Нельзя разместить брейнрот на панели {panelID}: на панели уже есть размещённый брейнрот {placedBrainrot.GetObjectName()}");
                 // Сбрасываем состояние взаимодействия, но не размещаем объект
                 ResetInteraction();
                 return;
+            }
+            
+            // ВАЖНО: Если placedBrainrot указывает на объект, который сейчас в руках,
+            // очищаем ссылку, чтобы можно было разместить объект обратно
+            if (placedBrainrot != null && placedBrainrot.IsCarried() && placedBrainrot == carriedObject)
+            {
+                placedBrainrot = null;
             }
             
             // Размещаем объект на панели (только если панель пустая)
@@ -810,6 +843,16 @@ public class PlacementPanel : InteractableObject
         // Очищаем ссылку на размещённый объект
         placedBrainrot = null;
         
+        // Сбрасываем флаг размещения, если он был установлен
+        isPlacingObject = false;
+        
+        // ВАЖНО: Устанавливаем флаг, что объект только что был взят из панели
+        // Это предотвратит немедленное размещение обратно в том же кадре
+        justTookFromPanel = true;
+        
+        // ВАЖНО: Сбрасываем флаг в следующем кадре, чтобы можно было разместить объект обратно позже
+        StartCoroutine(ResetJustTookFromPanelNextFrame());
+        
         Debug.Log("[PlacementPanel] Размещённый brainrot взят обратно в руки");
     }
     
@@ -830,6 +873,8 @@ public class PlacementPanel : InteractableObject
         if (placedBrainrot != null)
         {
             Debug.LogWarning($"[PlacementPanel] Нельзя разместить брейнрот {brainrotObject.GetObjectName()} на панели {panelID}: на панели уже есть размещённый брейнрот {placedBrainrot.GetObjectName()}");
+            // Сбрасываем флаг размещения, если он был установлен
+            isPlacingObject = false;
             return;
         }
         
@@ -891,6 +936,10 @@ public class PlacementPanel : InteractableObject
         // ВАЖНО: Размещенные на панели брейнроты автоматически считаются побежденными
         brainrotObject.SetUnfought(false);
         
+        // ВАЖНО: Устанавливаем флаг размещения ПЕРЕД установкой ссылки
+        // Это предотвратит CheckPlacedBrainrot() от очистки ссылки во время размещения
+        isPlacingObject = true;
+        
         // ВАЖНО: Сохраняем ссылку на размещённый объект ПЕРЕД размещением
         // Это критично, чтобы IsBrainrotPlacedOnPanel() могла правильно определить, что объект размещён на панели
         placedBrainrot = brainrotObject;
@@ -902,6 +951,16 @@ public class PlacementPanel : InteractableObject
         if (playerCarryController != null)
         {
             playerCarryController.DropObject();
+            // ВАЖНО: Принудительно проверяем, что объект больше не в руках
+            // Это нужно, чтобы избежать проблем с задержкой обновления состояния
+            BrainrotObject stillCarried = playerCarryController.GetCurrentCarriedObject();
+            if (stillCarried == brainrotObject)
+            {
+                Debug.LogWarning($"[PlacementPanel] Объект {brainrotObject.GetObjectName()} все еще в руках после DropObject(), принудительно очищаем ссылку");
+                // Если объект все еще в руках, принудительно очищаем ссылку в PlayerCarryController
+                // Это может произойти, если DropObject() не успел обновить состояние
+                playerCarryController.DropObject();
+            }
         }
         
         // ВАЖНО: Убеждаемся, что объект активен и виден перед размещением
@@ -954,6 +1013,14 @@ public class PlacementPanel : InteractableObject
                 }
             }
         }
+        
+        // ВАЖНО: Сбрасываем флаг размещения ПОСЛЕ завершения размещения
+        // Это позволит CheckPlacedBrainrot() работать нормально в следующих кадрах
+        isPlacingObject = false;
+        
+        // ВАЖНО: Сбрасываем флаг взятия из панели после успешного размещения
+        // Это позволит снова взять объект из панели в будущем
+        justTookFromPanel = false;
         
         // Создаём эффект фейерверка на месте размещения (только если это не загрузка из сохранения)
         if (!isLoadingPlacedBrainrots)
@@ -1093,7 +1160,8 @@ public class PlacementPanel : InteractableObject
         
         // Можно разместить, если на панели нет размещённого объекта
         // ИЛИ если это тот же объект, который был взят из этой панели (но ссылка уже очищена)
-        return placedBrainrot == null;
+        bool canPlace = placedBrainrot == null;
+        return canPlace;
     }
     
     /// <summary>
@@ -1154,7 +1222,7 @@ public class PlacementPanel : InteractableObject
                 // Если объект найден в placedBrainrot, он размещен на панели
                 // Проверяем состояние только для дополнительной валидации
                 if (brainrot.IsPlaced() && !brainrot.IsCarried())
-                {
+            {
                     return true;
                 }
                 // Даже если состояние еще не обновлено, но ссылка есть - считаем размещенным
@@ -1204,5 +1272,15 @@ public class PlacementPanel : InteractableObject
                 SetAllChildrenActive(child, active);
             }
         }
+    }
+    
+    /// <summary>
+    /// Сбрасывает флаг justTookFromPanel в следующем кадре
+    /// Это позволяет разместить объект обратно после того, как он был взят
+    /// </summary>
+    private IEnumerator ResetJustTookFromPanelNextFrame()
+    {
+        yield return null; // Ждем один кадр
+        justTookFromPanel = false;
     }
 }

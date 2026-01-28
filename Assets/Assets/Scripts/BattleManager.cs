@@ -160,6 +160,28 @@ public class BattleManager : MonoBehaviour
             }
         }
         
+        // ВАЖНО: Проверяем, что в сцене только один BossController
+        // Если найдено несколько, сбрасываем все лишние
+        BossController[] allBossControllers = FindObjectsByType<BossController>(FindObjectsSortMode.None);
+        if (allBossControllers != null && allBossControllers.Length > 1)
+        {
+            Debug.LogWarning($"[BattleManager] Найдено {allBossControllers.Length} BossController в сцене! Оставляем только первый, остальные сбрасываем.");
+            for (int i = 1; i < allBossControllers.Length; i++)
+            {
+                if (allBossControllers[i] != null)
+                {
+                    allBossControllers[i].ResetBoss();
+                }
+            }
+        }
+        
+        // ВАЖНО: Сбрасываем текущего босса перед инициализацией нового
+        // Это гарантирует, что старые модели и состояние будут очищены
+        if (bossController != null)
+        {
+            bossController.ResetBoss();
+        }
+        
         // #region agent log
         try { 
             System.IO.File.AppendAllText(@"a:\CODE\unity_projects\Steal_brainrot_fight\.cursor\debug.log", 

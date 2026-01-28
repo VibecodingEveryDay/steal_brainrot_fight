@@ -36,9 +36,20 @@ public class PlayerCarryController : MonoBehaviour
     {
         // Используем LateUpdate для обновления позиции после всех других обновлений
         // Это предотвращает конфликты с другими скриптами и обеспечивает плавное движение
-        if (currentCarriedObject != null)
+        // ВАЖНО: Проверяем не только currentCarriedObject != null, но и IsCarried()
+        // Это предотвращает обновление позиции объекта, который уже размещен (isCarried = false)
+        if (currentCarriedObject != null && currentCarriedObject.IsCarried())
         {
             UpdateCarriedObjectPosition();
+        }
+        else if (currentCarriedObject != null && !currentCarriedObject.IsCarried())
+        {
+            // ВАЖНО: Если объект больше не в руках, но currentCarriedObject все еще установлен,
+            // очищаем ссылку, чтобы избежать проблем с обновлением позиции
+            // Это может произойти, если DropObject() не был вызван или был вызван неправильно
+            Debug.LogWarning($"[PlayerCarryController] Объект {currentCarriedObject.GetObjectName()} больше не в руках, но currentCarriedObject все еще установлен. Очищаем ссылку.");
+            currentCarriedObject = null;
+            offsetsCached = false;
         }
     }
     
@@ -164,10 +175,18 @@ public class PlayerCarryController : MonoBehaviour
     {
         if (currentCarriedObject == null)
         {
+            // #region agent log
+            try { System.IO.File.AppendAllText(@"a:\CODE\unity_projects\Steal_brainrot_fight\.cursor\debug.log", 
+                $"{{\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"H\",\"location\":\"PlayerCarryController.cs:165\",\"message\":\"DropObject - currentCarriedObject is null\",\"data\":{{}},\"timestamp\":{System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}}}\n"); } catch {}
+            // #endregion
             return;
         }
         
         BrainrotObject droppedObject = currentCarriedObject;
+        // #region agent log
+        try { System.IO.File.AppendAllText(@"a:\CODE\unity_projects\Steal_brainrot_fight\.cursor\debug.log", 
+            $"{{\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"H\",\"location\":\"PlayerCarryController.cs:171\",\"message\":\"DropObject - setting currentCarriedObject to null\",\"data\":{{\"objectName\":\"{droppedObject.GetObjectName()}\"}},\"timestamp\":{System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}}}\n"); } catch {}
+        // #endregion
         currentCarriedObject = null;
         
         // Сбрасываем кэш смещений
@@ -182,6 +201,10 @@ public class PlayerCarryController : MonoBehaviour
         // Убираем родителя объекта (если был установлен)
         // droppedObject.transform.SetParent(null);
         
+        // #region agent log
+        try { System.IO.File.AppendAllText(@"a:\CODE\unity_projects\Steal_brainrot_fight\.cursor\debug.log", 
+            $"{{\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"H\",\"location\":\"PlayerCarryController.cs:185\",\"message\":\"DropObject - after setting to null, GetCurrentCarriedObject returns\",\"data\":{{\"objectName\":\"{droppedObject.GetObjectName()}\",\"currentCarriedObjectNull\":{(currentCarriedObject == null).ToString().ToLower()}}},\"timestamp\":{System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}}}\n"); } catch {}
+        // #endregion
         Debug.Log($"[PlayerCarryController] Объект {droppedObject.GetObjectName()} положен");
     }
     

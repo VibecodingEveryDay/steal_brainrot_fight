@@ -221,6 +221,19 @@ public class BrainrotObject : InteractableObject
         // Сбрасываем флаг когда объект не взят
         uiHiddenByCarry = false;
         
+        // ВАЖНО: Если объект размещен на панели, НЕ вызываем base.Update()
+        // Это предотвращает обработку взаимодействия через BrainrotObject
+        // Взаимодействие должно обрабатываться только через PlacementPanel
+        if (isPlaced)
+        {
+            bool isPlacedOnPanel = PlacementPanel.IsBrainrotPlacedOnPanel(this);
+            if (isPlacedOnPanel)
+            {
+                // Объект размещен на панели - не обрабатываем взаимодействие
+                return;
+            }
+        }
+        
         // Вызываем базовый Update для обработки взаимодействия и UI
         base.Update();
     }
@@ -247,6 +260,24 @@ public class BrainrotObject : InteractableObject
             $"{{\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"D\",\"location\":\"BrainrotObject.cs:243\",\"message\":\"CompleteInteraction entry\",\"data\":{{\"isCarried\":{isCarried.ToString().ToLower()},\"isPlaced\":{isPlaced.ToString().ToLower()},\"unfought\":{unfought.ToString().ToLower()},\"objectName\":\"{objectName}\"}},\"timestamp\":{System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}}}\n"); } catch {}
         // #endregion
         
+        // ВАЖНО: Если объект размещен на панели, НЕ обрабатываем взаимодействие
+        // Взаимодействие должно обрабатываться только через PlacementPanel
+        // Это предотвращает двойной вызов CompleteInteraction
+        if (isPlaced)
+        {
+            bool isPlacedOnPanel = PlacementPanel.IsBrainrotPlacedOnPanel(this);
+            if (isPlacedOnPanel)
+            {
+                // #region agent log
+                try { System.IO.File.AppendAllText(@"a:\CODE\unity_projects\Steal_brainrot_fight\.cursor\debug.log", 
+                    $"{{\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"J\",\"location\":\"BrainrotObject.cs:252\",\"message\":\"CompleteInteraction - skipping because placed on panel\",\"data\":{{\"objectName\":\"{objectName}\"}},\"timestamp\":{System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}}}\n"); } catch {}
+                // #endregion
+                // Объект размещен на панели - не обрабатываем взаимодействие
+                ResetInteraction();
+                return;
+            }
+        }
+        
         if (isCarried)
         {
             // Если объект уже взят, проверяем, есть ли активная панель
@@ -260,8 +291,8 @@ public class BrainrotObject : InteractableObject
                 if (canPlaceOnPanel)
                 {
                     // Если можно разместить на панели, не размещаем на земле
-                    // Размещение должно происходить только через interaction с PlacementPanel
-                    ResetInteraction();
+                // Размещение должно происходить только через interaction с PlacementPanel
+                ResetInteraction();
                 }
                 else
                 {
@@ -286,12 +317,12 @@ public class BrainrotObject : InteractableObject
             
             if (isPlacedOnPanel)
             {
-                // Если объект размещен на панели - нельзя драться, можно только взять обратно
-                // Размещенные на панели брейнроты считаются побежденными
-                Take();
-                
-                // Сбрасываем состояние взаимодействия
+                // ВАЖНО: Если объект размещен на панели, взаимодействие должно обрабатываться через PlacementPanel
+                // НЕ вызываем Take() здесь, чтобы не брать объект обратно сразу после размещения
+                // Вместо этого просто сбрасываем состояние взаимодействия
+                // Взятие объекта обратно должно происходить только через PlacementPanel.CompleteInteraction()
                 ResetInteraction();
+                return; // ВАЖНО: Выходим, чтобы не обрабатывать дальше
             }
             else if (unfought)
             {
@@ -306,9 +337,9 @@ public class BrainrotObject : InteractableObject
                 
                 // Сбрасываем состояние взаимодействия
                 ResetInteraction();
-            }
-            else
-            {
+        }
+        else
+        {
                 // Если объект размещен на земле и уже побеждён - можно взять на руки
                 Take();
                 
@@ -533,8 +564,8 @@ public class BrainrotObject : InteractableObject
             if (carriedObject == this)
             {
                 // Объект все еще в руках - освобождаем
-                playerCarryController.DropObject();
-            }
+            playerCarryController.DropObject();
+        }
         }
         
         // ВАЖНО: Если проверка выше не сработала (из-за того, что ссылка еще не была установлена),

@@ -1033,6 +1033,15 @@ public class GameStorage : MonoBehaviour
         Save();
     }
     
+    /// <summary>
+    /// Увеличить уровень силы удара игрока
+    /// </summary>
+    public void IncreaseAttackPowerLevel(int amount = 1)
+    {
+        int currentLevel = GetAttackPowerLevel();
+        SetAttackPowerLevel(currentLevel + amount);
+    }
+    
     #endregion
     
     #region Ultimate Methods
