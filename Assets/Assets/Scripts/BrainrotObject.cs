@@ -55,6 +55,9 @@ public class BrainrotObject : InteractableObject
     [Tooltip("Смещение объекта при размещении по оси X (влево/вправо относительно игрока)")]
     [SerializeField] private float putOffsetX = 0f;
     
+    [Tooltip("Смещение объекта при размещении по оси Y (вверх/вниз относительно земли)")]
+    [SerializeField] private float putOffsetY = 0f;
+    
     [Tooltip("Смещение объекта при размещении по оси Z (вперед/назад относительно игрока)")]
     [SerializeField] private float putOffsetZ = 1.5f;
     
@@ -95,6 +98,9 @@ public class BrainrotObject : InteractableObject
     
     // Оптимизация: флаг для отслеживания состояния UI
     private bool uiHiddenByCarry = false;
+    
+    /// <summary> True, если объект только что взят с PlacementPanel (чтобы не вызывать Put() в том же кадре). </summary>
+    private bool justTakenFromPanel = false;
     
     // Экземпляр префаба с данными
     private GameObject infoPrefabInstance;
@@ -278,8 +284,24 @@ public class BrainrotObject : InteractableObject
             }
         }
         
+        // Unfought брейнрота никогда не берём в руки и не перемещаем — только бой. Не вызываем Put(), чтобы объект не телепортировался.
+        if (unfought && !isCarried)
+        {
+            StartFight();
+            ResetInteraction();
+            return;
+        }
+        
         if (isCarried)
         {
+            // ВАЖНО: Если объект только что взят с панели — не ставить на пол (взаимодействие уже обработано панелью)
+            if (justTakenFromPanel)
+            {
+                justTakenFromPanel = false;
+                ResetInteraction();
+                return;
+            }
+            
             // Если объект уже взят, проверяем, есть ли активная панель
             PlacementPanel activePanel = PlacementPanel.GetActivePanel();
             if (activePanel != null)
@@ -318,66 +340,18 @@ public class BrainrotObject : InteractableObject
             if (isPlacedOnPanel)
             {
                 // ВАЖНО: Если объект размещен на панели, взаимодействие должно обрабатываться через PlacementPanel
-                // НЕ вызываем Take() здесь, чтобы не брать объект обратно сразу после размещения
-                // Вместо этого просто сбрасываем состояние взаимодействия
-                // Взятие объекта обратно должно происходить только через PlacementPanel.CompleteInteraction()
                 ResetInteraction();
-                return; // ВАЖНО: Выходим, чтобы не обрабатывать дальше
+                return;
             }
-            else if (unfought)
-            {
-                // Если объект размещен на земле и ещё не побеждён - начинаем бой
-                // #region agent log
-                try { System.IO.File.AppendAllText(@"a:\CODE\unity_projects\Steal_brainrot_fight\.cursor\debug.log", 
-                    $"{{\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"D\",\"location\":\"BrainrotObject.cs:267\",\"message\":\"Calling StartFight from isPlaced on ground branch\",\"data\":{{\"unfought\":{unfought.ToString().ToLower()},\"isPlaced\":{isPlaced.ToString().ToLower()},\"objectName\":\"{objectName}\"}},\"timestamp\":{System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}}}\n"); } catch {}
-                // #endregion
-                
-                // Брейнрот ещё не побеждён - начинаем бой (телепорт в зону битвы)
-                StartFight();
-                
-                // Сбрасываем состояние взаимодействия
-                ResetInteraction();
-        }
-        else
-        {
-                // Если объект размещен на земле и уже побеждён - можно взять на руки
-                Take();
-                
-                // Сбрасываем состояние взаимодействия
-                ResetInteraction();
-            }
-        }
-        else
-        {
-            // Если объект не взят и не размещен
-            if (unfought)
-            {
-                // #region agent log
-                try { System.IO.File.AppendAllText(@"a:\CODE\unity_projects\Steal_brainrot_fight\.cursor\debug.log", 
-                    $"{{\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"D\",\"location\":\"BrainrotObject.cs:287\",\"message\":\"Calling Put then StartFight from not placed branch\",\"data\":{{\"unfought\":{unfought.ToString().ToLower()},\"isPlaced\":{isPlaced.ToString().ToLower()},\"isCarried\":{isCarried.ToString().ToLower()},\"objectName\":\"{objectName}\"}},\"timestamp\":{System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}}}\n"); } catch {}
-                // #endregion
-                
-                // Брейнрот ещё не побеждён - НЕЛЬЗЯ взять на руки
-                // Вместо этого начинаем бой (телепорт в зону битвы)
-                // ВАЖНО: Если объект не размещен, сначала размещаем его, затем начинаем бой
-                // Размещаем объект на земле перед началом боя
-                Put();
-                
-                // После размещения начинаем бой
-                StartFight();
-                
-                // Сбрасываем состояние взаимодействия
-                ResetInteraction();
-            }
-            else
-            {
-                // Брейнрот побеждён - можно брать на руки
+            // Сюда попадаем только если размещён на земле и уже побеждён (unfought обработан выше)
             Take();
-            
-            // После Take НЕ вызываем base.CompleteInteraction() - UI должен остаться видимым
-            // Вместо этого сбрасываем только состояние взаимодействия, чтобы можно было взаимодействовать снова
             ResetInteraction();
-            }
+        }
+        else
+        {
+            // Сюда попадаем только если не взят и не размещён и уже побеждён (unfought обработан выше)
+            Take();
+            ResetInteraction();
         }
     }
     
@@ -394,6 +368,10 @@ public class BrainrotObject : InteractableObject
     /// </summary>
     public void Take()
     {
+        // Не брать в руки брейнрота, если он ещё не побеждён (unfought) — с ним нужно сразиться
+        if (unfought)
+            return;
+        
         if (playerCarryController == null)
         {
             FindPlayerCarryController();
@@ -416,6 +394,10 @@ public class BrainrotObject : InteractableObject
         {
             CacheComponents();
         }
+        
+        // Повторная проверка перед изменением состояния (на случай двойного вызова или гонки)
+        if (unfought)
+            return;
         
         // Устанавливаем состояние
         isCarried = true;
@@ -488,20 +470,34 @@ public class BrainrotObject : InteractableObject
                              forwardDirection * (putOffsetZ + placementOffsetZ) + 
                              rightDirection * (putOffsetX + placementOffsetX);
         
-        // Используем Raycast для определения позиции на земле
+        // Используем Raycast для определения точки на земле
         RaycastHit hit;
+        float groundY = putPosition.y;
         if (Physics.Raycast(putPosition + Vector3.up * 2f, Vector3.down, out hit, 5f))
         {
             putPosition = hit.point;
+            groundY = hit.point.y;
         }
         else
         {
-            // Если Raycast не нашел землю, используем позицию игрока с небольшим смещением вниз
             putPosition.y = playerTransform.position.y;
         }
         
-        // Размещаем объект на позиции
+        putPosition.y += putOffsetY;
+        
         PutAtPosition(putPosition, Quaternion.Euler(0f, placementRotationY, 0f));
+        
+        // Опускаем объект по фактическим bounds, чтобы низ касался земли (groundY)
+        Renderer[] renderers = GetComponentsInChildren<Renderer>();
+        if (renderers != null && renderers.Length > 0)
+        {
+            Bounds bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++)
+                if (renderers[i] != null) bounds.Encapsulate(renderers[i].bounds);
+            float sink = bounds.min.y - groundY;
+            if (sink > 0.001f)
+                transform.position -= Vector3.up * sink;
+        }
     }
     
     /// <summary>
@@ -870,6 +866,15 @@ public class BrainrotObject : InteractableObject
     }
     
     /// <summary>
+    /// Пометить объект как только что взятый с PlacementPanel (чтобы не ставить на пол при следующем CompleteInteraction).
+    /// Вызывается из PlacementPanel.TakePlacedBrainrot() после Take().
+    /// </summary>
+    public void SetJustTakenFromPanel()
+    {
+        justTakenFromPanel = true;
+    }
+    
+    /// <summary>
     /// Сбросить состояние объекта (для повторного использования)
     /// </summary>
     public void ResetState()
@@ -969,6 +974,14 @@ public class BrainrotObject : InteractableObject
     }
     
     /// <summary>
+    /// Получить смещение по Y при размещении
+    /// </summary>
+    public float GetPutOffsetY()
+    {
+        return putOffsetY;
+    }
+    
+    /// <summary>
     /// Получить смещение по Z при размещении
     /// </summary>
     public float GetPutOffsetZ()
@@ -982,6 +995,14 @@ public class BrainrotObject : InteractableObject
     public void SetPutOffsetX(float offsetX)
     {
         putOffsetX = offsetX;
+    }
+    
+    /// <summary>
+    /// Установить смещение по Y при размещении
+    /// </summary>
+    public void SetPutOffsetY(float offsetY)
+    {
+        putOffsetY = offsetY;
     }
     
     /// <summary>
@@ -1054,6 +1075,22 @@ public class BrainrotObject : InteractableObject
     public void SetPlacementRotationY(float rotationY)
     {
         placementRotationY = rotationY;
+    }
+    
+    /// <summary>
+    /// Получить поворот по Y при спавне (из префаба)
+    /// </summary>
+    public float GetSpawnRotationY()
+    {
+        return spawnRotationY;
+    }
+    
+    /// <summary>
+    /// Установить поворот по Y при спавне
+    /// </summary>
+    public void SetSpawnRotationY(float rotationY)
+    {
+        spawnRotationY = rotationY;
     }
     
     /// <summary>

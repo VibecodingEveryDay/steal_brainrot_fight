@@ -137,7 +137,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c27b7e518742bb443af764544a0fa8d7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BrainrotObject
-  interactionRange: 10
+  interactionRange: 14
   interactionKey: 101
   interactionTime: 0.7
   interactionPoint: {fileID: 7649099378338409612}
@@ -145,7 +145,7 @@ MonoBehaviour:
   uiOffset: {x: 0, y: 2, z: 1}
   uiPrefab: {fileID: 3297737178138087674, guid: e117ed3be41b2d848aca90e40d4a3ab3, type: 3}
   useRingRotation: 1
-  ringRadius: 4
+  ringRadius: 5
   ringHeight: 2
   ringRotationSpeed: 5
   onInteractionComplete:
@@ -173,12 +173,15 @@ MonoBehaviour:
   carryOffsetZ: 4
   carryRotationY: 0
   putOffsetX: 0
+  putOffsetY: 0
   putOffsetZ: 0
   placementScale: {x: 0.9, y: 0.9, z: 0.9}
   placementOffsetX: 0
   placementOffsetZ: 0
   placementRotationY: 180
   spawnRotationY: 180
+  invertBossRotation: 0
+  unfought: 1
   onTake:
     m_PersistentCalls:
       m_Calls: []

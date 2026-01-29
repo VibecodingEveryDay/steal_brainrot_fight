@@ -156,17 +156,20 @@ MonoBehaviour:
   infoPrefab: {fileID: 2324391841607248777, guid: 60cfcdeba00c0b74f963f0edda1026e6, type: 3}
   infoPrefabOffset: {x: 0, y: 12, z: 1}
   showOnlyWhenPlaced: 0
-  carryOffsetX: 2
+  carryOffsetX: 0
   carryOffsetY: -1
-  carryOffsetZ: 5
+  carryOffsetZ: 2
   carryRotationY: 0
   putOffsetX: 0
+  putOffsetY: 0
   putOffsetZ: 0
   placementScale: {x: 0.8, y: 0.8, z: 0.8}
   placementOffsetX: 0
   placementOffsetZ: 0
   placementRotationY: 180
   spawnRotationY: 180
+  invertBossRotation: 0
+  unfought: 1
   onTake:
     m_PersistentCalls:
       m_Calls: []

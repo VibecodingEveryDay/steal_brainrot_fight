@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -12,6 +13,9 @@ public class BrainrotSpawnButton : InteractableObject
     [Header("Настройки спавна")]
     [Tooltip("Смещение позиции спавна относительно кнопки")]
     [SerializeField] private Vector3 spawnOffset = new Vector3(0f, 0f, 2f);
+    
+    [Tooltip("Дополнительное смещение позиции спавна брейнрота (X, Y, Z) в мировых осях")]
+    [SerializeField] private Vector3 brainrotSpawnOffset = Vector3.zero;
     
     [Tooltip("Радиус для поиска свободного места для спавна")]
     [SerializeField] private float spawnRadius = 3f;
@@ -45,9 +49,36 @@ public class BrainrotSpawnButton : InteractableObject
     [Tooltip("Максимальный базовый доход")]
     [SerializeField] private long baseIncomeMax = 1000;
     
+    [Header("Дверь")]
+    [Tooltip("Родительский объект двери (Door parent с Part... внутри). Если не назначен, анимация двери не выполняется")]
+    [SerializeField] private Transform doorTransform;
+    
+    [Tooltip("Расстояние по Y, на которое дверь уезжает вверх при открытии")]
+    [SerializeField] private float doorOpenOffsetY = 3f;
+    
+    [Tooltip("Время открытия и время закрытия двери (в секундах)")]
+    [SerializeField] private float doorOpenCloseDuration = 1f;
+    
+    [Header("Boss VFX")]
+    [Tooltip("VFX-эффект, который появляется над заспавненным брейнротом, когда дверь начала открываться")]
+    [SerializeField] private GameObject bossVfxPrefab;
+    
+    [Tooltip("Смещение VFX относительно позиции брейнрота (X, Y, Z)")]
+    [SerializeField] private Vector3 bossVfxOffset = new Vector3(0f, 2f, 0f);
+    
+    [Tooltip("Масштаб VFX (один параметр для всех осей)")]
+    [SerializeField] private float bossVfxScale = 1f;
+    
     [Header("Debug")]
     [Tooltip("Показывать отладочные сообщения")]
     [SerializeField] private bool debug = false;
+    
+    // Дверь: мировая Y в закрытом состоянии (запоминается в Start)
+    private float doorClosedY;
+    private bool isDoorOpen = false;
+    
+    // Последний заспавненный брейнрот (для позиции Boss VFX)
+    private Transform lastSpawnedBrainrotTransform;
     
     // Загруженные префабы брейнротов
     private GameObject[] brainrotPrefabs;
@@ -97,6 +128,11 @@ public class BrainrotSpawnButton : InteractableObject
                 }
             }
         }
+        
+        if (doorTransform != null)
+        {
+            doorClosedY = doorTransform.position.y;
+        }
     }
     
     /// <summary>
@@ -117,23 +153,99 @@ public class BrainrotSpawnButton : InteractableObject
             Debug.Log($"[BrainrotSpawnButton] {gameObject.name}: CompleteInteraction вызван");
         }
         
-        // Вызываем виртуальный метод для спавна брейнрота
-        OnInteractionComplete();
+        if (doorTransform != null)
+        {
+            // Всё в корутине: закрыть дверь → удалить unfought → спавнить нового → открыть дверь
+            StartCoroutine(RunDoorSequence());
+        }
+        else
+        {
+            RemoveAllUnfoughtBrainrots();
+            SpawnBrainrot();
+        }
         
-        // ПРИМЕЧАНИЕ: Событие onInteractionComplete не вызывается здесь, так как оно приватное в базовом классе.
-        // Если нужно вызвать события, настройте их в инспекторе через UnityEvent или используйте другой подход.
-        
-        // НЕ уничтожаем UI - оставляем его для повторного использования
-        // НЕ устанавливаем interactionCompleted = true - сбрасываем его для повторного использования
-        
-        // Сбрасываем состояние взаимодействия, чтобы можно было взаимодействовать снова
-        // Это сбросит прогресс и interactionCompleted
         ResetInteraction();
         
         if (debug)
         {
             Debug.Log($"[BrainrotSpawnButton] {gameObject.name}: Состояние взаимодействия сброшено, UI должен остаться видимым");
         }
+    }
+    
+    /// <summary>
+    /// Удаляет все unfought брейнроты на сцене (на карте остаётся только новый заспавненный).
+    /// </summary>
+    private void RemoveAllUnfoughtBrainrots()
+    {
+        BrainrotObject[] all = FindObjectsByType<BrainrotObject>(FindObjectsSortMode.None);
+        foreach (BrainrotObject brainrot in all)
+        {
+            if (brainrot != null && brainrot.gameObject != null && brainrot.IsUnfought())
+            {
+                Destroy(brainrot.gameObject);
+                if (debug) Debug.Log($"[BrainrotSpawnButton] Удалён unfought брейнрот: {brainrot.GetObjectName()}");
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Последовательность: при повторной активации — закрыть дверь, после закрытия удалить unfought и спавнить нового, затем открыть дверь.
+    /// </summary>
+    private IEnumerator RunDoorSequence()
+    {
+        if (doorTransform == null) yield break;
+        
+        // При повторной активации — сначала закрыть дверь
+        if (isDoorOpen)
+        {
+            yield return AnimateDoorY(doorClosedY, doorOpenCloseDuration);
+            // После закрытия: удалить unfought брейнротов и спавнить нового (появится, когда дверь начнёт открываться)
+            RemoveAllUnfoughtBrainrots();
+            SpawnBrainrot();
+        }
+        else
+        {
+            // Первая активация: удалить (пусто) и спавнить до открытия
+            RemoveAllUnfoughtBrainrots();
+            SpawnBrainrot();
+        }
+        
+        // Показать Boss VFX над заспавненным брейнротом, когда дверь начала открываться
+        if (bossVfxPrefab != null && lastSpawnedBrainrotTransform != null)
+        {
+            Vector3 vfxPosition = lastSpawnedBrainrotTransform.position + bossVfxOffset;
+            GameObject vfxInstance = Instantiate(bossVfxPrefab, vfxPosition, Quaternion.identity);
+            if (vfxInstance != null)
+                vfxInstance.transform.localScale = Vector3.one * bossVfxScale;
+        }
+        
+        // Открыть дверь
+        yield return AnimateDoorY(doorClosedY + doorOpenOffsetY, doorOpenCloseDuration);
+        isDoorOpen = true;
+    }
+    
+    /// <summary>
+    /// Анимирует позицию двери по Y до целевого значения за заданное время.
+    /// </summary>
+    private IEnumerator AnimateDoorY(float targetY, float duration)
+    {
+        if (doorTransform == null || duration <= 0f) yield break;
+        
+        Vector3 pos = doorTransform.position;
+        float startY = pos.y;
+        float elapsed = 0f;
+        
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            pos.y = Mathf.Lerp(startY, targetY, t);
+            doorTransform.position = pos;
+            yield return null;
+        }
+        
+        pos.y = targetY;
+        doorTransform.position = pos;
     }
     
     /// <summary>
@@ -310,30 +422,8 @@ public class BrainrotSpawnButton : InteractableObject
         // Вычисляем позицию спавна
         Vector3 spawnPosition = GetSpawnPosition();
         
-        // Получаем spawnRotationY из префаба (если есть компонент BrainrotObject на префабе)
-        float rotationY = 0f;
-        BrainrotObject prefabBrainrot = prefabToSpawn.GetComponent<BrainrotObject>();
-        if (prefabBrainrot != null)
-        {
-            // Используем рефлексию для получения spawnRotationY (приватное поле)
-            System.Reflection.FieldInfo spawnRotationYField = typeof(BrainrotObject).GetField("spawnRotationY",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            if (spawnRotationYField != null)
-            {
-                rotationY = (float)spawnRotationYField.GetValue(prefabBrainrot);
-            }
-        }
-        
-        // Если spawnRotationY не задан (0), используем случайный поворот
-        if (Mathf.Abs(rotationY) < 0.01f)
-        {
-            rotationY = Random.Range(0f, 360f);
-        }
-        
-        Quaternion spawnRotation = Quaternion.Euler(0f, rotationY, 0f);
-        
-        // Создаем экземпляр
-        GameObject spawnedObject = Instantiate(prefabToSpawn, spawnPosition, spawnRotation);
+        // Создаём экземпляр; поворот по Y выставим после спавна из данных префаба (у экземпляра значения префаба уже подставлены)
+        GameObject spawnedObject = Instantiate(prefabToSpawn, spawnPosition, Quaternion.identity);
         
         if (spawnedObject == null)
         {
@@ -341,8 +431,7 @@ public class BrainrotSpawnButton : InteractableObject
             return;
         }
         
-        // Получаем компонент BrainrotObject
-        BrainrotObject brainrotObject = spawnedObject.GetComponent<BrainrotObject>();
+        BrainrotObject brainrotObject = spawnedObject.GetComponentInChildren<BrainrotObject>();
         if (brainrotObject == null)
         {
             Debug.LogWarning($"[BrainrotSpawnButton] У спавненного объекта {spawnedObject.name} нет компонента BrainrotObject!");
@@ -350,12 +439,20 @@ public class BrainrotSpawnButton : InteractableObject
             return;
         }
         
+        // Поворот по Y берём из заспавненного объекта (там уже корректные значения из префаба); если 0 — случайный
+        float rotationY = brainrotObject.GetSpawnRotationY();
+        if (Mathf.Abs(rotationY) < 0.01f)
+            rotationY = Random.Range(0f, 360f);
+        spawnedObject.transform.rotation = Quaternion.Euler(0f, rotationY, 0f);
+        
         // Устанавливаем редкость
         brainrotObject.SetRarity(selectedRarity);
         
         // Генерируем случайный baseIncome
         long randomBaseIncome = Random.Range((int)baseIncomeMin, (int)baseIncomeMax + 1);
         brainrotObject.SetBaseIncome(randomBaseIncome);
+        
+        lastSpawnedBrainrotTransform = spawnedObject.transform;
         
         if (debug)
         {
@@ -387,6 +484,7 @@ public class BrainrotSpawnButton : InteractableObject
             spawnPosition = basePosition;
         }
         
+        spawnPosition += brainrotSpawnOffset;
         return spawnPosition;
     }
 }

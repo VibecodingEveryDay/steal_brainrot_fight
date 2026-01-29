@@ -833,6 +833,7 @@ public class PlacementPanel : InteractableObject
         
         // Берём объект обратно в руки
         placedBrainrot.Take();
+        placedBrainrot.SetJustTakenFromPanel();
         
         // Удаляем размещенный брейнрот из GameStorage
         if (GameStorage.Instance != null)

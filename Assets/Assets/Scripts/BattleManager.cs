@@ -19,6 +19,19 @@ public class BattleManager : MonoBehaviour
     [Tooltip("Множитель HP босса (HP = (доход / делитель) * множитель)")]
     [SerializeField] private float bossHPMultiplier = 1f;
     
+    [Header("Damage by level (10–60)")]
+    [Tooltip("Множитель урона игрока по уровню силы. X = уровень (10–60), Y = множитель. Например: (10,1) (60,2) — на 10 ур. x1, на 60 ур. x2")]
+    [SerializeField] private AnimationCurve damageByLevelScaler = new AnimationCurve(
+        new Keyframe(10f, 1f),
+        new Keyframe(60f, 2f)
+    );
+    
+    [Tooltip("Минимальный уровень для расчёта (старт)")]
+    [SerializeField] private int minPowerLevel = 10;
+    
+    [Tooltip("Максимальный уровень силы")]
+    [SerializeField] private int maxPowerLevel = 60;
+    
     [Header("References")]
     [Tooltip("Ссылка на игрока")]
     [SerializeField] private Transform playerTransform;
@@ -150,6 +163,11 @@ public class BattleManager : MonoBehaviour
         // Очищаем HP союзников
         allyHP.Clear();
         
+        // Сброс счётчика урона для уведомления (сумма за этот бой)
+        var damageNotify = FindFirstObjectByType<DamageNotifyManager>();
+        if (damageNotify != null)
+            damageNotify.ResetTotalDamage();
+        
         // ВАЖНО: Находим BossController если он не назначен
         if (bossController == null)
         {
@@ -279,9 +297,24 @@ public class BattleManager : MonoBehaviour
     }
     
     /// <summary>
-    /// Наносит урон боссу
+    /// Множитель урона по текущему уровню силы игрока (10–60). Используется в DamageBoss.
     /// </summary>
-    public void DamageBoss(float damage)
+    public float GetDamageScaleByLevel()
+    {
+        int level = 10;
+        if (GameStorage.Instance != null)
+            level = Mathf.Clamp(GameStorage.Instance.GetAttackPowerLevel(), minPowerLevel, maxPowerLevel);
+        if (damageByLevelScaler == null || damageByLevelScaler.keys.Length == 0)
+            return 1f;
+        return Mathf.Max(0.01f, damageByLevelScaler.Evaluate(level));
+    }
+    
+    /// <summary>
+    /// Наносит урон боссу. Если applyLevelScaler == true (урон от игрока), урон умножается на DamageByLevelScaler по уровню силы 10–60.
+    /// </summary>
+    /// <param name="damage">Базовый урон</param>
+    /// <param name="applyLevelScaler">Применять ли множитель по уровню силы (true для урона от игрока)</param>
+    public void DamageBoss(float damage, bool applyLevelScaler = false)
     {
         if (!isBattleActive)
         {
@@ -289,14 +322,21 @@ public class BattleManager : MonoBehaviour
             return;
         }
         
+        float scaledDamage = applyLevelScaler ? damage * GetDamageScaleByLevel() : damage;
+        
         float oldHP = bossHP;
-        bossHP -= damage;
+        bossHP -= scaledDamage;
         if (bossHP < 0f)
         {
             bossHP = 0f;
         }
         
-        Debug.Log($"[BattleManager] Босс получил урон: {damage}, HP: {oldHP} -> {bossHP}");
+        Debug.Log($"[BattleManager] Босс получил урон: {scaledDamage} (база: {damage}, scale применён: {applyLevelScaler}), HP: {oldHP} -> {bossHP}");
+        
+        // Уведомление об уроне (MainCanvas->OverflowUiContainer->DamageNotify->DamageText)
+        var damageNotifyManager = FindFirstObjectByType<DamageNotifyManager>();
+        if (damageNotifyManager != null)
+            damageNotifyManager.AddDamage((double)scaledDamage);
         
         // Обновляем сложность красных зон на основе текущего HP
         if (redZoneSpawner != null)
@@ -389,6 +429,11 @@ public class BattleManager : MonoBehaviour
     private void DefeatBoss()
     {
         if (!isBattleActive) return;
+        
+        // Сразу скрыть уведомление об уроне
+        var damageNotifyManager = FindFirstObjectByType<DamageNotifyManager>();
+        if (damageNotifyManager != null)
+            damageNotifyManager.ResetTotalDamage();
         
         OnBossDefeated?.Invoke();
         

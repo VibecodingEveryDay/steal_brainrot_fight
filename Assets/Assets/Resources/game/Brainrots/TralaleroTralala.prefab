@@ -137,7 +137,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c27b7e518742bb443af764544a0fa8d7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BrainrotObject
-  interactionRange: 10
+  interactionRange: 14
   interactionKey: 101
   interactionTime: 0.7
   interactionPoint: {fileID: 6387849755486099004}
@@ -173,12 +173,15 @@ MonoBehaviour:
   carryOffsetZ: 1.5
   carryRotationY: 0
   putOffsetX: 0
+  putOffsetY: 0
   putOffsetZ: 0
   placementScale: {x: 0.75, y: 0.75, z: 0.75}
   placementOffsetX: 0
   placementOffsetZ: 0
   placementRotationY: 180
   spawnRotationY: 180
+  invertBossRotation: 0
+  unfought: 1
   onTake:
     m_PersistentCalls:
       m_Calls: []

@@ -6,39 +6,25 @@ using UnityEngine.InputSystem;
 #endif
 
 /// <summary>
-/// Управляет анимациями ударов игрока и ультимейтом.
-/// E - случайные удары (IsJab или IsUpperCrossJab).
-/// Ультимейт - активация IsStrongBeat1 при близости к боссу.
+/// Управляет анимациями ударов игрока.
+/// Персонаж автоматически бьёт, когда находится в области коллайдера-триггера босса. Клавиша E больше не вызывает удар.
 /// </summary>
 [RequireComponent(typeof(ThirdPersonController))]
 public class PlayerCombatController : MonoBehaviour
 {
     [Header("Attack Settings")]
-    [Tooltip("Клавиша для удара")]
-    [SerializeField] private KeyCode attackKey = KeyCode.E;
-    
     [Tooltip("Кулдаун между ударами (в секундах)")]
     [SerializeField] private float attackCooldown = 0.5f;
     
     [Tooltip("Урон от обычного удара")]
     [SerializeField] private float baseAttackDamage = 10f;
     
-    [Tooltip("Максимальное расстояние для нанесения урона боссу")]
+    [Tooltip("Максимальное расстояние для нанесения урона боссу (резерв, если босс без триггера)")]
     [SerializeField] private float attackRange = 3f;
-    
-    [Header("Ultimate Settings")]
-    [Tooltip("Расстояние для активации ультимейта (близость к боссу)")]
-    [SerializeField] private float ultimateActivationDistance = 3f;
-    
-    [Tooltip("Урон от ультимейта")]
-    [SerializeField] private float ultimateDamage = 50f;
     
     [Header("References")]
     [Tooltip("Ссылка на ThirdPersonController")]
     [SerializeField] private ThirdPersonController thirdPersonController;
-    
-    [Tooltip("Ссылка на UltimateProgressBar")]
-    [SerializeField] private UltimateProgressBar ultimateProgressBar;
     
     [Header("VFX Settings")]
     [Tooltip("Префаб VFX эффекта для удара")]
@@ -101,7 +87,6 @@ public class PlayerCombatController : MonoBehaviour
     // Аниматор параметры
     private static readonly int IsJabHash = Animator.StringToHash("IsJab");
     private static readonly int IsUpperCutJabHash = Animator.StringToHash("IsUpperCutJab");
-    private static readonly int IsStrongBeat1Hash = Animator.StringToHash("IsStrongBeat1");
     
     private void Awake()
     {
@@ -168,68 +153,20 @@ public class PlayerCombatController : MonoBehaviour
     
     private void Update()
     {
-        // Обрабатываем ввод для удара (работает всегда, не только в бою)
-        HandleAttackInput();
-        
         // Обновляем позиции активных VFX эффектов
         UpdateVFXPositions();
         
-        // Проверяем, активен ли бой для остальной логики
-        if (battleManager == null || !battleManager.IsBattleActive())
+        // Автоудар только в бою и только когда игрок в зоне триггера босса
+        if (battleManager != null && battleManager.IsBattleActive())
         {
-            return;
-        }
-        
-        // Находим BossController если нужно
-        if (bossController == null)
-        {
-            bossController = FindFirstObjectByType<BossController>();
-        }
-        
-        // Проверяем возможность активации ультимейта
-        CheckUltimateActivation();
-    }
-    
-    /// <summary>
-    /// Обрабатывает ввод для удара
-    /// </summary>
-    private void HandleAttackInput()
-    {
-        // Проверяем кулдаун
-        if (Time.time - lastAttackTime < attackCooldown)
-        {
-            return;
-        }
-        
-        // Проверяем, не выполняется ли уже атака
-        if (isAttacking)
-        {
-            return;
-        }
-        
-        // Проверяем нажатие клавиши
-        bool attackPressed = false;
-        
-#if ENABLE_INPUT_SYSTEM
-        if (Keyboard.current != null)
-        {
-            attackPressed = Keyboard.current.eKey.wasPressedThisFrame;
-        }
-        else if (debug)
-        {
-            Debug.LogWarning("[PlayerCombatController] Keyboard.current == null. Проверьте настройки Input System.");
-        }
-#else
-        attackPressed = Input.GetKeyDown(attackKey);
-#endif
-        
-        if (attackPressed)
-        {
-            if (debug)
+            if (bossController == null)
+                bossController = FindFirstObjectByType<BossController>();
+            
+            if (bossController != null && IsPlayerInBossAttackZone()
+                && Time.time - lastAttackTime >= attackCooldown && !isAttacking)
             {
-                Debug.Log("[PlayerCombatController] Нажата клавиша атаки (E)");
+                PerformAttack();
             }
-            PerformAttack();
         }
     }
     
@@ -284,10 +221,11 @@ public class PlayerCombatController : MonoBehaviour
         // Спавним VFX эффекты
         SpawnAttackVFX();
         
-        // Наносим урон боссу только если бой активен и игрок в диапазоне атаки
+        // Наносим урон боссу только если бой активен и игрок в зоне атаки босса (внутри триггер-капсулы босса)
         if (battleManager != null && battleManager.IsBattleActive())
         {
-            DealDamageToBoss(baseAttackDamage);
+            if (IsPlayerInBossAttackZone())
+                DealDamageToBoss(baseAttackDamage);
         }
         
         if (debug)
@@ -308,57 +246,20 @@ public class PlayerCombatController : MonoBehaviour
     }
     
     /// <summary>
-    /// Проверяет возможность активации ультимейта
+    /// Игрок в зоне атаки босса (внутри триггер-капсулы босса) — только тогда можно наносить урон.
     /// </summary>
-    private void CheckUltimateActivation()
+    private bool IsPlayerInBossAttackZone()
     {
-        if (ultimateProgressBar == null) return;
-        if (bossController == null) return;
-        if (animator == null) return;
-        
-        // Проверяем, заполнен ли прогресс ультимейта
-        if (!ultimateProgressBar.IsUltimateReady())
+        if (bossController == null)
         {
-            return;
+            bossController = FindFirstObjectByType<BossController>();
+            if (bossController == null) return false;
         }
-        
-        // Проверяем близость к боссу
-        float distanceToBoss = Vector3.Distance(transform.position, bossController.transform.position);
-        
-        if (distanceToBoss <= ultimateActivationDistance)
-        {
-            // Активируем ультимейт
-            ActivateUltimate();
-        }
+        return bossController.IsPlayerInAttackZone();
     }
     
     /// <summary>
-    /// Активирует ультимейт
-    /// </summary>
-    private void ActivateUltimate()
-    {
-        if (animator == null) return;
-        
-        // Запускаем анимацию ультимейта
-        animator.SetTrigger(IsStrongBeat1Hash);
-        
-        // Наносим урон боссу
-        DealDamageToBoss(ultimateDamage);
-        
-        // Сбрасываем прогресс ультимейта
-        if (ultimateProgressBar != null)
-        {
-            ultimateProgressBar.ResetProgress();
-        }
-        
-        if (debug)
-        {
-            Debug.Log("[PlayerCombatController] Активирован ультимейт!");
-        }
-    }
-    
-    /// <summary>
-    /// Наносит урон боссу с учетом силы удара (без проверки расстояния)
+    /// Наносит урон боссу с учетом силы удара (вызывать только когда игрок в зоне атаки босса)
     /// </summary>
     private void DealDamageToBoss(float baseDamage)
     {
@@ -418,20 +319,12 @@ public class PlayerCombatController : MonoBehaviour
             finalDamage *= powerMultiplier;
         }
         
-        // Наносим урон боссу через BattleManager (который обновит HP и вызовет события)
+        // Наносим урон боссу через BattleManager (применяется DamageByLevelScaler по уровню силы 10–60)
         float hpBefore = battleManager.GetBossCurrentHP();
-        battleManager.DamageBoss(finalDamage);
+        battleManager.DamageBoss(finalDamage, applyLevelScaler: true);
         float hpAfter = battleManager.GetBossCurrentHP();
         
         Debug.Log($"[PlayerCombatController] Нанесен урон боссу: {finalDamage} (базовый: {baseDamage}), HP: {hpBefore} -> {hpAfter}");
-    }
-    
-    /// <summary>
-    /// Устанавливает ссылку на UltimateProgressBar
-    /// </summary>
-    public void SetUltimateProgressBar(UltimateProgressBar progressBar)
-    {
-        ultimateProgressBar = progressBar;
     }
     
     /// <summary>

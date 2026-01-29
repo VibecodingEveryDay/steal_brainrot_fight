@@ -50,11 +50,29 @@ public class BossController : MonoBehaviour
     [Tooltip("Если включено, спавнить всех брейнротов из Resources/game/Brainrots в зоне битвы для тестирования")]
     [SerializeField] private bool prefabTestY = false;
     
+    [Header("Attack Zone (Trigger)")]
+    [Tooltip("Радиус капсулы-триггера зоны атаки (игрок может бить босса только внутри неё)")]
+    [SerializeField] private float attackZoneRadius = 3f;
+    
+    [Tooltip("Высота капсулы-триггера зоны атаки")]
+    [SerializeField] private float attackZoneHeight = 4f;
+    
+    [Tooltip("Рисовать капсулу в сцене (Gizmos) для отладки")]
+    [SerializeField] private bool drawAttackZoneGizmo = true;
+    
+    [Tooltip("Цвет капсулы в сцене (когда игрок в зоне)")]
+    [SerializeField] private Color attackZoneGizmoColorIn = new Color(0f, 1f, 0f, 0.3f);
+    
+    [Tooltip("Цвет капсулы в сцене (когда игрок не в зоне)")]
+    [SerializeField] private Color attackZoneGizmoColorOut = new Color(1f, 0f, 0f, 0.25f);
+    
     [Header("Debug")]
     [Tooltip("Показывать отладочные сообщения")]
     [SerializeField] private bool debug = false;
     
     private CharacterController characterController;
+    private CapsuleCollider attackZoneCollider;
+    private bool playerInAttackZone = false;
     private BattleManager battleManager;
     private BattleZone battleZone;
     
@@ -98,6 +116,15 @@ public class BossController : MonoBehaviour
         {
             animator = GetComponentInChildren<Animator>();
         }
+        
+        attackZoneCollider = GetComponent<CapsuleCollider>();
+        if (attackZoneCollider == null)
+            attackZoneCollider = gameObject.AddComponent<CapsuleCollider>();
+        attackZoneCollider.isTrigger = true;
+        attackZoneCollider.radius = attackZoneRadius;
+        attackZoneCollider.height = attackZoneHeight;
+        attackZoneCollider.direction = 1;
+        attackZoneCollider.center = new Vector3(0f, attackZoneHeight * 0.5f, 0f);
     }
     
     private void Start()
@@ -113,6 +140,49 @@ public class BossController : MonoBehaviour
             battleManager.SetBossController(this);
         }
     }
+    
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other != null && other.CompareTag("Player"))
+        {
+            playerInAttackZone = true;
+            if (debug) Debug.Log("[BossController] Игрок вошёл в зону атаки босса");
+        }
+    }
+    
+    private void OnTriggerExit(Collider other)
+    {
+        if (other != null && other.CompareTag("Player"))
+        {
+            playerInAttackZone = false;
+            if (debug) Debug.Log("[BossController] Игрок вышел из зоны атаки босса");
+        }
+    }
+    
+    /// <summary>
+    /// Игрок находится в зоне атаки (внутри триггер-капсулы) — может наносить урон.
+    /// </summary>
+    public bool IsPlayerInAttackZone()
+    {
+        return playerInAttackZone;
+    }
+    
+#if UNITY_EDITOR
+    private void OnDrawGizmos()
+    {
+        if (!drawAttackZoneGizmo) return;
+        float r = attackZoneRadius;
+        float h = attackZoneHeight;
+        Vector3 center = Application.isPlaying && attackZoneCollider != null
+            ? transform.TransformPoint(attackZoneCollider.center)
+            : transform.position + Vector3.up * (h * 0.5f);
+        Gizmos.color = Application.isPlaying && playerInAttackZone ? attackZoneGizmoColorIn : attackZoneGizmoColorOut;
+        Gizmos.matrix = Matrix4x4.TRS(center, transform.rotation, Vector3.one);
+        Gizmos.DrawWireSphere(new Vector3(0, h * 0.5f - r, 0), r);
+        Gizmos.DrawWireSphere(new Vector3(0, -h * 0.5f + r, 0), r);
+        Gizmos.matrix = Matrix4x4.identity;
+    }
+#endif
     
     private void Update()
     {
@@ -350,35 +420,19 @@ public class BossController : MonoBehaviour
         bossVisual.transform.localPosition = new Vector3(0f, bossVisualHeight, 0f);
         
         // ВАЖНО: Определяем, нужно ли поворачивать модель на 180Y
-        // Поворачиваем все модели на 180Y, кроме тех, что в списке исключений
-        bool shouldRotate180Y = true;
+        // Используем параметр invertBossRotation из BrainrotObject: true = повернуть на 180° (лицом к игроку)
+        bool shouldRotate180Y = false;
         if (brainrot != null)
         {
-            string objectName = brainrot.GetObjectName();
-            
-            // Список исключений - эти модели НЕ нужно поворачивать
-            // DragonCannelloni убран из списка - теперь поворачивается на 180Y при битве
-            // ballerinacaputchina убран из списка - теперь поворачивается на 180Y при битве
-            string[] excludedNames = { "67", "BisonteGiuppitere", "KetupatKepat", "BlackholeGoat", "AdminLuckyBlock" };
-            
-            // Проверяем, есть ли имя в списке исключений
-            foreach (string excludedName in excludedNames)
-            {
-                if (objectName == excludedName)
-                {
-                    shouldRotate180Y = false;
-                    break;
-                }
-            }
-            
+            shouldRotate180Y = brainrot.GetInvertBossRotation();
             if (debug)
             {
-                Debug.Log($"[BossController] Объект '{objectName}': shouldRotate180Y = {shouldRotate180Y}");
+                Debug.Log($"[BossController] Объект '{brainrot.GetObjectName()}': invertBossRotation = {shouldRotate180Y}");
             }
         }
         else
         {
-            Debug.LogWarning("[BossController] BrainrotObject равен null, используем поворот по умолчанию (180Y)");
+            Debug.LogWarning("[BossController] BrainrotObject равен null, поворот модели не применяется");
         }
         
         // ВАЖНО: Устанавливаем поворот по Y
@@ -757,12 +811,7 @@ public class BossController : MonoBehaviour
             directionToPlayer.Normalize();
             Quaternion targetRotation = Quaternion.LookRotation(directionToPlayer);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
-            
-            // Поворачиваем модель если она назначена
-            if (modelTransform != null)
-            {
-                modelTransform.rotation = Quaternion.Slerp(modelTransform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
-            }
+            // Модель — дочерний объект: наследует поворот родителя. localRotation (0° или 180° Y по invertBossRotation) задаётся в CreateBossVisual и не перезаписывается.
         }
     }
     
@@ -800,12 +849,7 @@ public class BossController : MonoBehaviour
         {
             Quaternion targetRotation = Quaternion.LookRotation(direction);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
-            
-            // Поворачиваем модель если она назначена
-            if (modelTransform != null)
-            {
-                modelTransform.rotation = Quaternion.Slerp(modelTransform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
-            }
+            // Модель — дочерний объект: наследует поворот родителя. localRotation (0° или 180° Y по invertBossRotation) не перезаписываем.
         }
         
         // Обновляем аниматор
@@ -899,6 +943,7 @@ public class BossController : MonoBehaviour
         isInitialized = false;
         currentTarget = null;
         availableTargets.Clear();
+        playerInAttackZone = false;
         
         // ВАЖНО: Удаляем все дочерние объекты (визуальные модели босса)
         // Это гарантирует, что не будет накопления старых моделей

@@ -145,6 +145,11 @@ public class PlayerCarryController : MonoBehaviour
             return;
         }
         
+        if (obj.IsUnfought())
+        {
+            return;
+        }
+        
         if (currentCarriedObject != null)
         {
             Debug.LogWarning("[PlayerCarryController] Игрок уже несет объект! Сначала нужно положить текущий объект.");
