@@ -47,6 +47,8 @@ public class InteractButton : MonoBehaviour, IPointerDownHandler, IPointerUpHand
     private int progressFrameCount = 0;
     private string defaultText = "ВЗЯТЬ"; // Будет обновлено через локализацию
     private string putText = "ПОСТАВИТЬ"; // Будет обновлено через локализацию
+    private string getText = "Получить"; // ru: Получить, en: Get — для BrainrotSpawnButton
+    private string fightText = "Бой"; // ru: Бой, en: Fight — для unfought босса (BrainrotObject)
     private bool lastShouldShowState = false; // Для логирования только при изменении видимости
     private string currentLanguage = "ru"; // Текущий язык для отслеживания изменений
     
@@ -480,12 +482,15 @@ public class InteractButton : MonoBehaviour, IPointerDownHandler, IPointerUpHand
         {
             defaultText = "ВЗЯТЬ";
             putText = "ПОСТАВИТЬ";
+            getText = "Получить";
+            fightText = "Бой";
         }
         else
         {
-            // Английский или другие языки
             defaultText = "TAKE";
             putText = "PUT";
+            getText = "Get";
+            fightText = "Fight";
         }
     }
     
@@ -525,8 +530,16 @@ public class InteractButton : MonoBehaviour, IPointerDownHandler, IPointerUpHand
             hasBrainrotInHands = playerCarryController.GetCurrentCarriedObject() != null;
         }
         
-        // Обновляем текст в зависимости от состояния
-        string newText = hasBrainrotInHands ? putText : defaultText;
+        // Текст: если в руках — "Поставить"; иначе — "Получить" для BrainrotSpawnButton, "Бой"/"Fight" для unfought босса, иначе "Взять"
+        string newText;
+        if (hasBrainrotInHands)
+            newText = putText;
+        else if (currentInteractableObject is BrainrotSpawnButton)
+            newText = getText;
+        else if (currentInteractableObject is BrainrotObject brainrot && brainrot.IsUnfought())
+            newText = fightText;
+        else
+            newText = defaultText;
         
         if (textTMP.text != newText)
         {

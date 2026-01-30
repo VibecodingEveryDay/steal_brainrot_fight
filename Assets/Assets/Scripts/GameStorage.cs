@@ -954,6 +954,36 @@ public class GameStorage : MonoBehaviour
         return YG2.saves.PlacedBrainrots;
     }
     
+    /// <summary>
+    /// Финальный доход по данным размещения (та же формула, что в BrainrotObject: baseIncome * rarityMultiplier * (1 + level)).
+    /// </summary>
+    public static double GetFinalIncomeFromPlacement(PlacementData p)
+    {
+        if (p == null) return 0;
+        long mult = GetRarityMultiplierFromString(p.rarity);
+        double levelMult = 1.0 + 1.0 * p.level;
+        return p.baseIncome * mult * levelMult;
+    }
+    
+    /// <summary>
+    /// Множитель редкости по строке (Common=1, Rare=5, Exclusive=10, Epic=50, Mythic=200, Legendary=1000, Secret=10000).
+    /// </summary>
+    public static long GetRarityMultiplierFromString(string rarity)
+    {
+        if (string.IsNullOrEmpty(rarity)) return 1L;
+        switch (rarity.ToLower())
+        {
+            case "common": return 1L;
+            case "rare": return 5L;
+            case "exclusive": return 10L;
+            case "epic": return 50L;
+            case "mythic": return 200L;
+            case "legendary": return 1000L;
+            case "secret": return 10000L;
+            default: return 1L;
+        }
+    }
+    
     #endregion
     
     #region EarnPanel Methods

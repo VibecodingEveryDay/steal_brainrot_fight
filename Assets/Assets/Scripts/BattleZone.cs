@@ -102,6 +102,27 @@ public class BattleZone : MonoBehaviour
     }
     
     /// <summary>
+    /// Точка спавна союзника по индексу (0..4). Y подменяется на groundY (FightZoneGround).
+    /// </summary>
+    public Vector3 GetAllySpawnPositionForIndex(int index, float groundY)
+    {
+        Vector3 pos;
+        if (allySpawnPoints != null && index >= 0 && index < allySpawnPoints.Length && allySpawnPoints[index] != null)
+        {
+            pos = allySpawnPoints[index].position;
+        }
+        else
+        {
+            Vector3 playerPos = GetPlayerSpawnPosition();
+            float angle = index * (360f / 5f) * Mathf.Deg2Rad;
+            float r = 2.5f;
+            pos = playerPos + new Vector3(Mathf.Cos(angle) * r, 0f, Mathf.Sin(angle) * r);
+        }
+        pos.y = groundY;
+        return pos;
+    }
+    
+    /// <summary>
     /// Проверяет, находится ли позиция внутри зоны сражения
     /// </summary>
     public bool IsPositionInZone(Vector3 position)

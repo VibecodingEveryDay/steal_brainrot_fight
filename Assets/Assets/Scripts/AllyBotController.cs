@@ -8,21 +8,27 @@ using UnityEngine;
 public class AllyBotController : MonoBehaviour
 {
     [Header("Movement Settings")]
-    [Tooltip("Скорость движения бота")]
-    [SerializeField] private float moveSpeed = 4f;
+    [Tooltip("Скорость сближения с боссом")]
+    [SerializeField] private float approachSpeed = 4f;
+    
+    [Tooltip("Скорость возврата на исходную позицию после удара (обычно выше)")]
+    [SerializeField] private float returnSpeed = 10f;
     
     [Tooltip("Скорость поворота бота")]
     [SerializeField] private float rotationSpeed = 5f;
     
-    [Tooltip("Расстояние атаки (когда бот близко к боссу, он атакует)")]
-    [SerializeField] private float attackDistance = 2f;
+    [Tooltip("Расстояние атаки по горизонтали XZ (когда бот близко к боссу, он атакует)")]
+    [SerializeField] private float attackDistance = 3f;
     
     [Header("Attack Settings")]
-    [Tooltip("Урон от атаки бота")]
+    [Tooltip("Урон от атаки бота (если не задан извне через Initialize)")]
     [SerializeField] private float attackDamage = 5f;
     
     [Tooltip("Интервал между атаками (в секундах)")]
     [SerializeField] private float attackCooldown = 1.5f;
+    
+    [Tooltip("Дистанция до точки спавна, при которой считаем, что бот вернулся")]
+    [SerializeField] private float homeReachedDistance = 0.5f;
     
     [Header("References")]
     [Tooltip("Модель бота (для поворота)")]
@@ -43,6 +49,12 @@ public class AllyBotController : MonoBehaviour
     private bool isInitialized = false;
     private float lastAttackTime = 0f;
     private Transform bossTransform;
+    private Vector3 homePosition;
+    private float spawnTime;
+    private float startDelay;
+    
+    private enum BotState { GoingToBoss, ReturningHome }
+    private BotState state = BotState.GoingToBoss;
     
     // Аниматор параметры
     private static readonly int SpeedHash = Animator.StringToHash("Speed");
@@ -86,47 +98,78 @@ public class AllyBotController : MonoBehaviour
     
     private void Update()
     {
-        // Проверяем, активен ли бой
         if (battleManager == null || !battleManager.IsBattleActive())
         {
-            // Если бой не активен, останавливаем бота
-            if (animator != null)
-            {
-                animator.SetFloat(SpeedHash, 0f);
-            }
             return;
         }
         
-        // Находим BossController если нужно
+        if (Time.time < spawnTime + startDelay)
+            return;
+        
         if (bossController == null)
         {
             bossController = FindFirstObjectByType<BossController>();
             if (bossController != null)
-            {
                 bossTransform = bossController.transform;
-            }
         }
         
-        // Если босс не найден, ничего не делаем
-        if (bossTransform == null) return;
-        
-        // Движемся к боссу и атакуем
-        MoveTowardsBoss();
-        CheckAttack();
+        if (state == BotState.GoingToBoss)
+        {
+            if (bossTransform == null) return;
+            MoveTowardsBoss();
+            if (CheckAttackAndMaybeReturnHome())
+                state = BotState.ReturningHome;
+        }
+        else
+        {
+            MoveTowardsHome();
+            if (IsHomeReached())
+                state = BotState.GoingToBoss;
+        }
     }
     
     /// <summary>
-    /// Инициализирует бота
+    /// Инициализирует бота (место спавна и урон извне, например из BotSpawner).
     /// </summary>
-    public void Initialize(Vector3 spawnPosition)
+    public void Initialize(Vector3 spawnPosition, float damage)
     {
         transform.position = spawnPosition;
+        homePosition = spawnPosition;
+        attackDamage = damage;
+        spawnTime = Time.time;
         isInitialized = true;
+        state = BotState.GoingToBoss;
         
         if (debug)
         {
-            Debug.Log($"[AllyBotController] Бот инициализирован на позиции: {spawnPosition}");
+            Debug.Log($"[AllyBotController] Бот инициализирован на позиции: {spawnPosition}, урон: {damage}");
         }
+    }
+    
+    /// <summary>
+    /// Задержка старта с начала битвы (1 раз): бот не движется и не бьёт до spawnTime + delay.
+    /// Вызывается из BotSpawner: 1-й бот 0, 2-й n, 3-й n*2 и т.д.
+    /// </summary>
+    public void SetStartDelay(float delay)
+    {
+        startDelay = delay;
+    }
+    
+    /// <summary>
+    /// Инициализирует бота только позицией (урон остаётся из SerializeField).
+    /// </summary>
+    public void Initialize(Vector3 spawnPosition)
+    {
+        Initialize(spawnPosition, attackDamage);
+    }
+    
+    /// <summary>
+    /// Задаёт скорости сближения и возврата (вызывается из BotSpawner для настройки из инспектора).
+    /// </summary>
+    public void SetSpeeds(float approach, float returnSpd)
+    {
+        approachSpeed = approach;
+        returnSpeed = returnSpd;
     }
     
     /// <summary>
@@ -141,8 +184,8 @@ public class AllyBotController : MonoBehaviour
         direction.y = 0f; // Игнорируем вертикальную составляющую
         direction.Normalize();
         
-        // Движемся к боссу
-        Vector3 movement = direction * moveSpeed * Time.deltaTime;
+        // Движемся к боссу (скорость сближения)
+        Vector3 movement = direction * approachSpeed * Time.deltaTime;
         characterController.Move(movement);
         
         // Поворачиваемся к боссу
@@ -157,46 +200,67 @@ public class AllyBotController : MonoBehaviour
                 modelTransform.rotation = Quaternion.Slerp(modelTransform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
             }
         }
-        
-        // Обновляем аниматор
-        if (animator != null)
-        {
-            animator.SetFloat(SpeedHash, moveSpeed);
-        }
     }
     
     /// <summary>
-    /// Проверяет возможность атаки
+    /// Движется к месту спавна (домой) — быстро на исходную позицию.
     /// </summary>
-    private void CheckAttack()
+    private void MoveTowardsHome()
     {
-        if (bossTransform == null) return;
-        if (Time.time - lastAttackTime < attackCooldown) return;
-        
-        // Проверяем расстояние до босса
-        float distanceToBoss = Vector3.Distance(transform.position, bossTransform.position);
-        if (distanceToBoss <= attackDistance)
+        Vector3 toHome = homePosition - transform.position;
+        toHome.y = 0f;
+        if (toHome.sqrMagnitude < 0.0001f) return;
+        toHome.Normalize();
+        Vector3 movement = toHome * returnSpeed * Time.deltaTime;
+        characterController.Move(movement);
+        if (toHome.sqrMagnitude > 0.01f)
         {
-            // Атакуем босса
+            Quaternion targetRotation = Quaternion.LookRotation(toHome);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+            if (modelTransform != null)
+                modelTransform.rotation = Quaternion.Slerp(modelTransform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+        }
+    }
+    
+    private bool IsHomeReached()
+    {
+        Vector3 flatPos = transform.position;
+        flatPos.y = 0f;
+        Vector3 flatHome = homePosition;
+        flatHome.y = 0f;
+        return Vector3.Distance(flatPos, flatHome) <= homeReachedDistance;
+    }
+    
+    /// <summary>
+    /// Проверяет возможность атаки; при ударе возвращает true (пора идти домой).
+    /// Дистанция считается по горизонтали (XZ), чтобы разница по Y не мешала удару.
+    /// </summary>
+    private bool CheckAttackAndMaybeReturnHome()
+    {
+        if (bossTransform == null) return false;
+        if (Time.time - lastAttackTime < attackCooldown) return false;
+        
+        Vector3 a = transform.position;
+        Vector3 b = bossTransform.position;
+        a.y = 0f;
+        b.y = 0f;
+        float distanceToBossXZ = Vector3.Distance(a, b);
+        if (distanceToBossXZ <= attackDistance)
+        {
             AttackBoss();
             lastAttackTime = Time.time;
+            return true;
         }
+        return false;
     }
     
     /// <summary>
-    /// Атакует босса
+    /// Атакует босса (без анимации).
     /// </summary>
     private void AttackBoss()
     {
         if (bossController == null) return;
         
-        // Запускаем анимацию атаки
-        if (animator != null)
-        {
-            animator.SetTrigger(AttackHash);
-        }
-        
-        // Наносим урон боссу
         bossController.TakeDamage(attackDamage);
         
         if (debug)

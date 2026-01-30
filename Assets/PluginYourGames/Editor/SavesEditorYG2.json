@@ -1,124 +1,47 @@
 {
-    "balanceCount": 15,
-    "balanceScaler": "M",
+    "balanceCount": 727,
+    "balanceScaler": "K",
     "Brainrots": [],
-    "PlayerSpeedLevel": 16,
+    "PlayerSpeedLevel": 0,
     "PurchasedSafeZones": [],
     "PlacedBrainrots": [
         {
-            "placementID": 11,
-            "brainrotName": "KarkerkarKurkur",
+            "placementID": 3,
+            "brainrotName": "ChimpanziniBananini",
             "level": 0,
             "rarity": "Exclusive",
-            "baseIncome": 936
+            "baseIncome": 753
         },
         {
             "placementID": 4,
-            "brainrotName": "KarkerkarKurkur",
-            "level": 0,
-            "rarity": "Exclusive",
-            "baseIncome": 549
-        },
-        {
-            "placementID": 6,
-            "brainrotName": "Pakrahmatmamat",
-            "level": 0,
-            "rarity": "Rare",
-            "baseIncome": 781
-        },
-        {
-            "placementID": 1,
             "brainrotName": "BallerinaCappuccina",
             "level": 0,
-            "rarity": "Rare",
-            "baseIncome": 900
-        },
-        {
-            "placementID": 2,
-            "brainrotName": "KetupatKepat",
-            "level": 0,
-            "rarity": "Rare",
-            "baseIncome": 484
+            "rarity": "Exclusive",
+            "baseIncome": 912
         },
         {
             "placementID": 5,
-            "brainrotName": "JobJobJobSahur",
-            "level": 0,
-            "rarity": "Common",
-            "baseIncome": 832
-        },
-        {
-            "placementID": 0,
-            "brainrotName": "KetupatKepat",
+            "brainrotName": "AdminLuckyBlock",
             "level": 0,
             "rarity": "Exclusive",
-            "baseIncome": 862
-        },
-        {
-            "placementID": 7,
-            "brainrotName": "KarkerkarKurkur",
-            "level": 0,
-            "rarity": "Exclusive",
-            "baseIncome": 119
-        },
-        {
-            "placementID": 3,
-            "brainrotName": "BisonteGiuppitere",
-            "level": 0,
-            "rarity": "Exclusive",
-            "baseIncome": 758
-        },
-        {
-            "placementID": 12,
-            "brainrotName": "BallerinaCappuccina",
-            "level": 0,
-            "rarity": "Exclusive",
-            "baseIncome": 318
+            "baseIncome": 143
         }
     ],
     "EarnPanelBalances": [
         {
-            "panelID": 6,
-            "accumulatedBalance": 640420.0
-        },
-        {
-            "panelID": 5,
-            "accumulatedBalance": 136448.0
+            "panelID": 3,
+            "accumulatedBalance": 0.0
         },
         {
             "panelID": 4,
-            "accumulatedBalance": 905850.0
+            "accumulatedBalance": 0.0
         },
         {
-            "panelID": 7,
-            "accumulatedBalance": 195160.0
-        },
-        {
-            "panelID": 3,
-            "accumulatedBalance": 1235540.0
-        },
-        {
-            "panelID": 2,
-            "accumulatedBalance": 394460.0
-        },
-        {
-            "panelID": 1,
-            "accumulatedBalance": 733500.0
-        },
-        {
-            "panelID": 0,
-            "accumulatedBalance": 4387580.0
-        },
-        {
-            "panelID": 11,
-            "accumulatedBalance": 1535040.0
-        },
-        {
-            "panelID": 12,
-            "accumulatedBalance": 518340.0
+            "panelID": 5,
+            "accumulatedBalance": 0.0
         }
     ],
-    "AttackPowerLevel": 31,
+    "AttackPowerLevel": 16,
     "CurrentUltimate": "IsStrongBeat1",
     "intExample": 5,
     "strExample": "Hello!",
@@ -128,5 +51,5 @@
         false,
         false
     ],
-    "idSave": 46403
+    "idSave": 48360
 }

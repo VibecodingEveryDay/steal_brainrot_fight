@@ -406,8 +406,14 @@ public class RedZone : MonoBehaviour
     private float spawnTime;
     private BattleManager battleManager;
     private Transform playerTransform;
-    /// <summary> Игрок находится внутри триггера зоны (MeshCollider convex isTrigger на префабе). </summary>
+    /// <summary> Игрок находится внутри триггера зоны (CapsuleCollider isTrigger на префабе). </summary>
     private bool playerInZone = false;
+    
+    /// <summary> Вызывается из RedZoneTriggerForwarder или при триггере на этом объекте. </summary>
+    public void SetPlayerInZone(bool inZone)
+    {
+        playerInZone = inZone;
+    }
     
     private void Awake()
     {
@@ -434,8 +440,26 @@ public class RedZone : MonoBehaviour
     
     private void Start()
     {
-        // Создаем визуальное представление зоны
         CreateZoneVisual();
+        EnsureTriggerEventsReceived();
+    }
+    
+    /// <summary>
+    /// Если триггер (CapsuleCollider) на дочернем объекте — добавляем пересылку событий в этот RedZone.
+    /// </summary>
+    private void EnsureTriggerEventsReceived()
+    {
+        Collider selfTrigger = GetComponent<Collider>();
+        if (selfTrigger != null && selfTrigger.isTrigger)
+            return;
+        Collider[] childColliders = GetComponentsInChildren<Collider>(true);
+        foreach (Collider col in childColliders)
+        {
+            if (col == null || !col.isTrigger || col.gameObject == gameObject) continue;
+            if (col.GetComponent<RedZoneTriggerForwarder>() != null) continue;
+            var forwarder = col.gameObject.AddComponent<RedZoneTriggerForwarder>();
+            forwarder.SetRedZone(this);
+        }
     }
     
     private void Update()
@@ -457,7 +481,7 @@ public class RedZone : MonoBehaviour
         // Уничтожаем зону после истечения времени жизни
         if (elapsed >= lifetime)
         {
-            // Если игрок на зоне (в триггере префаба) — телепортируем на базу и заканчиваем бой (удаляем босса)
+            // Если игрок на зоне (в триггере CapsuleCollider префаба) — телепортируем на базу и заканчиваем бой (удаляем босса)
             if (playerInZone)
             {
                 TeleportManager tm = TeleportManager.Instance;
@@ -561,5 +585,32 @@ public class RedZone : MonoBehaviour
             // Уничтожаем зону после нанесения урона
             Destroy(gameObject);
         }
+    }
+}
+
+/// <summary>
+/// Пересылает OnTriggerEnter/Exit с дочернего объекта (CapsuleCollider) в родительский RedZone.
+/// </summary>
+public class RedZoneTriggerForwarder : MonoBehaviour
+{
+    private RedZone redZone;
+    
+    public void SetRedZone(RedZone zone)
+    {
+        redZone = zone;
+    }
+    
+    private void OnTriggerEnter(Collider other)
+    {
+        if (redZone == null) return;
+        if (other != null && (other.CompareTag("Player") || other.GetComponent<ThirdPersonController>() != null))
+            redZone.SetPlayerInZone(true);
+    }
+    
+    private void OnTriggerExit(Collider other)
+    {
+        if (redZone == null) return;
+        if (other != null && (other.CompareTag("Player") || other.GetComponent<ThirdPersonController>() != null))
+            redZone.SetPlayerInZone(false);
     }
 }

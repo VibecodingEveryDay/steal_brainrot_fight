@@ -6,7 +6,7 @@ using UnityEditor;
 #endif
 
 /// <summary>
-/// Набор шансов редкостей для одной области уровней (в процентах 0-100).
+/// Набор шансов редкостей и диапазон baseIncome для одной области уровней (в процентах 0-100).
 /// </summary>
 [System.Serializable]
 public class RarityChanceSet
@@ -25,6 +25,10 @@ public class RarityChanceSet
     public float legendaryChance = 0.8f;
     [Tooltip("Secret 0-100")]
     public float secretChance = 0.2f;
+    [Tooltip("Минимальный базовый доход для этой области")]
+    public long baseIncomeMin = 100;
+    [Tooltip("Максимальный базовый доход для этой области")]
+    public long baseIncomeMax = 1000;
 }
 
 /// <summary>
@@ -77,13 +81,6 @@ public class BrainrotSpawnButton : InteractableObject
     [SerializeField] private RarityChanceSet area4_40_50;
     [Tooltip("Область 5: уровни 50–60")]
     [SerializeField] private RarityChanceSet area5_50_60;
-    
-    [Header("BaseIncome")]
-    [Tooltip("Минимальный базовый доход")]
-    [SerializeField] private long baseIncomeMin = 100;
-    
-    [Tooltip("Максимальный базовый доход")]
-    [SerializeField] private long baseIncomeMax = 1000;
     
     [Header("Дверь")]
     [Tooltip("Родительский объект двери (Door parent с Part... внутри). Если не назначен, анимация двери не выполняется")]
@@ -583,8 +580,20 @@ public class BrainrotSpawnButton : InteractableObject
         // Устанавливаем редкость
         brainrotObject.SetRarity(selectedRarity);
         
-        // Генерируем случайный baseIncome
-        long randomBaseIncome = Random.Range((int)baseIncomeMin, (int)baseIncomeMax + 1);
+        // Генерируем случайный baseIncome из диапазона текущей области (по уровню силы)
+        int level = 10;
+        if (GameStorage.Instance != null)
+            level = Mathf.Clamp(GameStorage.Instance.GetAttackPowerLevel(), 10, 60);
+        int areaIndex = GetAreaIndexForLevel(level);
+        RarityChanceSet set = GetChanceSetForArea(areaIndex);
+        long minInc = 100, maxInc = 1000;
+        if (set != null)
+        {
+            minInc = set.baseIncomeMin;
+            maxInc = set.baseIncomeMax;
+        }
+        if (maxInc < minInc) maxInc = minInc;
+        long randomBaseIncome = Random.Range((int)minInc, (int)maxInc + 1);
         brainrotObject.SetBaseIncome(randomBaseIncome);
         
         lastSpawnedBrainrotTransform = spawnedObject.transform;

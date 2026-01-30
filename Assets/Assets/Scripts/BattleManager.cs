@@ -128,6 +128,14 @@ public class BattleManager : MonoBehaviour
     }
     
     /// <summary>
+    /// Текущая зона боя (null вне боя).
+    /// </summary>
+    public BattleZone GetCurrentBattleZone()
+    {
+        return currentBattleZone;
+    }
+    
+    /// <summary>
     /// Начинает бой
     /// </summary>
     public void StartBattle(BrainrotObject brainrotObject, BattleZone battleZone)
