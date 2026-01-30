@@ -816,8 +816,8 @@ public class GameStorage : MonoBehaviour
     }
     
     /// <summary>
-    /// Очистить все данные storage (баланс, все Brainrot объекты, размещенные брейнроты, доходы earnpanel и уровень скорости)
-    /// Можно вызвать из инспектора
+    /// Очистить все данные storage (баланс, все Brainrot объекты, размещенные брейнроты, доходы earnpanel, уровень скорости и сила игрока).
+    /// Можно вызвать из инспектора.
     /// </summary>
     [ContextMenu("Clear Storage")]
     public void ClearStorage()
@@ -844,6 +844,9 @@ public class GameStorage : MonoBehaviour
         // Сбрасываем уровень скорости к значению по умолчанию
         YG2.saves.PlayerSpeedLevel = 0;
         
+        // Сбрасываем силу игрока (уровень атаки)
+        YG2.saves.AttackPowerLevel = 0;
+        
         // Очищаем список купленных безопасных зон
         YG2.saves.PurchasedSafeZones.Clear();
         
@@ -860,7 +863,7 @@ public class GameStorage : MonoBehaviour
             }
         }
         
-        Debug.Log("[GameStorage] Storage очищен: баланс, все Brainrot объекты, размещенные брейнроты, доходы earnpanel, уровень скорости и купленные безопасные зоны сброшены");
+        Debug.Log("[GameStorage] Storage очищен: баланс, все Brainrot объекты, размещенные брейнроты, доходы earnpanel, уровень скорости, сила игрока и купленные безопасные зоны сброшены");
     }
     
     /// <summary>

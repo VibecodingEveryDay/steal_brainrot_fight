@@ -33,6 +33,9 @@ public class PlayerCombatController : MonoBehaviour
     [Tooltip("Количество VFX эффектов за удар")]
     [SerializeField] private int vfxCountPerAttack = 3;
     
+    [Tooltip("Максимум активных VFX (старые удаляются при превышении, снижает нагрузку)")]
+    [SerializeField] private int maxActiveVFX = 12;
+    
     [Tooltip("Смещение VFX эффектов относительно игрока (по оси X)")]
     [SerializeField] private float vfxOffsetX = 0.5f;
     
@@ -324,7 +327,8 @@ public class PlayerCombatController : MonoBehaviour
         battleManager.DamageBoss(finalDamage, applyLevelScaler: true);
         float hpAfter = battleManager.GetBossCurrentHP();
         
-        Debug.Log($"[PlayerCombatController] Нанесен урон боссу: {finalDamage} (базовый: {baseDamage}), HP: {hpBefore} -> {hpAfter}");
+        if (debug)
+            Debug.Log($"[PlayerCombatController] Нанесен урон боссу: {finalDamage} (базовый: {baseDamage}), HP: {hpBefore} -> {hpAfter}");
     }
     
     /// <summary>
@@ -409,6 +413,15 @@ public class PlayerCombatController : MonoBehaviour
             {
                 Debug.Log($"[PlayerCombatController] Заспавнен VFX эффект #{i + 1} с локальным смещением: {localOffset}");
             }
+        }
+        
+        // Ограничиваем число активных VFX (снижает просадку FPS)
+        while (activeVFXList.Count > maxActiveVFX && activeVFXList.Count > 0)
+        {
+            var old = activeVFXList[0];
+            activeVFXList.RemoveAt(0);
+            if (old.vfxInstance != null)
+                Destroy(old.vfxInstance);
         }
     }
     

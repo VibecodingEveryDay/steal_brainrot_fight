@@ -145,7 +145,7 @@ MonoBehaviour:
   uiOffset: {x: 0, y: 2, z: 1}
   uiPrefab: {fileID: 3297737178138087674, guid: e117ed3be41b2d848aca90e40d4a3ab3, type: 3}
   useRingRotation: 1
-  ringRadius: 5
+  ringRadius: 4
   ringHeight: 2
   ringRotationSpeed: 5
   onInteractionComplete:

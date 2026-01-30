@@ -223,12 +223,7 @@ public class BossController : MonoBehaviour
         // ВАЖНО: Защищаем позицию босса, если она уже финализирована
         if (positionFinalized && Mathf.Abs(transform.position.y - targetYPosition) > 0.1f)
         {
-            // #region agent log
-            try { System.IO.File.AppendAllText(@"a:\CODE\unity_projects\Steal_brainrot_fight\.cursor\debug.log", 
-                $"{{\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"C\",\"location\":\"BossController.cs:148\",\"message\":\"LateUpdate restoring position\",\"data\":{{\"currentY\":{transform.position.y},\"targetYPosition\":{targetYPosition},\"difference\":{Mathf.Abs(transform.position.y - targetYPosition)}}},\"timestamp\":{System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}}}\n"); } catch {}
-            // #endregion
-            
-            // Восстанавливаем Y позицию
+            // Восстанавливаем Y позицию (без записи в файл — даёт просадку FPS)
             Vector3 pos = transform.position;
             float oldY = pos.y;
             pos.y = targetYPosition;

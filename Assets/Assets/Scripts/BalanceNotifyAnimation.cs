@@ -591,19 +591,26 @@ public class BalanceNotifyAnimation : MonoBehaviour
             Debug.Log($"[BalanceNotifyAnimation] После UpdateText: textAfterUpdate='{textAfterUpdate}', balanceCountText null: {balanceCountText == null}, balanceCountText.text='{balanceCountText?.text ?? "null"}'");
             if (string.IsNullOrEmpty(textAfterUpdate))
             {
-                Debug.LogError($"[BalanceNotifyAnimation] Текст пустой после UpdateText! actualFromAmount={actualFromAmount}, targetAmount={targetAmount}. Пытаемся установить еще раз.");
-                // Пытаемся установить еще раз с принудительным обновлением
-                string formattedText = FormatBalanceWithMaxDigits(actualFromAmount);
-                if (string.IsNullOrEmpty(formattedText))
+                // При actualFromAmount = 0 оставляем пустой текст (не "+ 0$")
+                if (actualFromAmount <= 0.0)
                 {
-                    formattedText = "0";
+                    balanceCountText.SetText("");
                 }
-                formattedText = "+ " + formattedText;
-                if (!string.IsNullOrEmpty(currencySuffix))
+                else
                 {
-                    formattedText += currencySuffix;
+                    Debug.LogError($"[BalanceNotifyAnimation] Текст пустой после UpdateText! actualFromAmount={actualFromAmount}, targetAmount={targetAmount}. Пытаемся установить еще раз.");
+                    string formattedText = FormatBalanceWithMaxDigits(actualFromAmount);
+                    if (string.IsNullOrEmpty(formattedText))
+                    {
+                        formattedText = "0";
+                    }
+                    formattedText = "+ " + formattedText;
+                    if (!string.IsNullOrEmpty(currencySuffix))
+                    {
+                        formattedText += currencySuffix;
+                    }
+                    balanceCountText.SetText(formattedText);
                 }
-                balanceCountText.SetText(formattedText);
                 balanceCountText.ForceMeshUpdate();
                 textAfterUpdate = balanceCountText.text ?? "";
                 Debug.Log($"[BalanceNotifyAnimation] После принудительной установки текста: '{textAfterUpdate}'");
@@ -975,6 +982,15 @@ public class BalanceNotifyAnimation : MonoBehaviour
             }
         }
         
+        // Когда пополнение 0 — показываем пустой текст, а не "+ 0$"
+        if (value <= 0.0)
+        {
+            balanceCountText.SetText("");
+            balanceCountText.ForceMeshUpdate();
+            currentDisplayedValue = 0.0;
+            return;
+        }
+        
         string formattedText;
         
         if (useGameStorageFormatting && gameStorage != null)
@@ -1000,17 +1016,6 @@ public class BalanceNotifyAnimation : MonoBehaviour
         if (!string.IsNullOrEmpty(currencySuffix))
         {
             formattedText += currencySuffix;
-        }
-        
-        // ВАЖНО: Проверяем, что итоговый текст не пустой
-        if (string.IsNullOrEmpty(formattedText))
-        {
-            formattedText = "+ 0";
-            if (!string.IsNullOrEmpty(currencySuffix))
-            {
-                formattedText += currencySuffix;
-            }
-            Debug.LogWarning($"[BalanceNotifyAnimation] Итоговый formattedText пустой, используем '{formattedText}'");
         }
         
         // ВАЖНО: Устанавливаем текст через SetText для TextMeshProUGUI

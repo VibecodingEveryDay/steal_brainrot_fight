@@ -54,18 +54,29 @@ public class DamageNotifyAnimation : MonoBehaviour
             if (child != null)
                 damageText = child.GetComponent<TextMeshProUGUI>();
             if (damageText == null)
-                damageText = GetComponentInChildren<TextMeshProUGUI>(true);
+            {
+                foreach (var tmp in GetComponentsInChildren<TextMeshProUGUI>(true))
+                {
+                    if (tmp != null && !tmp.name.Contains("SubMeshUI"))
+                    {
+                        damageText = tmp;
+                        break;
+                    }
+                }
+            }
             if (damageText == null)
                 damageText = GetComponent<TextMeshProUGUI>();
         }
         
+        // Только свой CanvasGroup — не родительский, иначе показывается и BalanceNotify (общий родитель).
         if (canvasGroup == null)
         {
-            canvasGroup = GetComponentInParent<CanvasGroup>();
+            canvasGroup = GetComponent<CanvasGroup>();
             if (canvasGroup == null)
-                canvasGroup = GetComponent<CanvasGroup>();
-            if (canvasGroup == null)
+            {
                 canvasGroup = gameObject.AddComponent<CanvasGroup>();
+                canvasGroup.alpha = 1f;
+            }
         }
         
         if (animationCurve == null || animationCurve.keys.Length == 0)
@@ -86,7 +97,7 @@ public class DamageNotifyAnimation : MonoBehaviour
     }
     
     /// <summary>
-    /// Анимация от fromDamage до targetDamage (double).
+    /// Анимация от fromDamage до targetDamage (double). Вызывается напрямую (корутины запускаются на этом объекте).
     /// </summary>
     public void AnimateToAmount(double fromDamage, double targetDamage)
     {
@@ -99,15 +110,13 @@ public class DamageNotifyAnimation : MonoBehaviour
                 return;
             }
         }
-        
-        if (!gameObject.activeInHierarchy)
-            gameObject.SetActive(true);
-        
+        EnsureActiveInHierarchy();
+        if (damageText != null && !damageText.gameObject.activeSelf)
+            damageText.gameObject.SetActive(true);
         if (currentAnimation != null)
             StopCoroutine(currentAnimation);
         if (fadeCoroutine != null)
             StopCoroutine(fadeCoroutine);
-        
         if (canvasGroup != null)
         {
             if (canvasGroup.alpha < 0.9f)
@@ -119,14 +128,17 @@ public class DamageNotifyAnimation : MonoBehaviour
                 canvasGroup.blocksRaycasts = true;
             }
         }
-        
+        else
+        {
+            canvasGroup = GetComponent<CanvasGroup>();
+            if (canvasGroup == null) canvasGroup = gameObject.AddComponent<CanvasGroup>();
+            if (canvasGroup != null) { canvasGroup.alpha = 1f; canvasGroup.interactable = true; canvasGroup.blocksRaycasts = true; }
+        }
         double actualFrom = fromDamage;
         if (targetDamage > 0 && currentDisplayedValue > 0 && fromDamage == 0)
             actualFrom = currentDisplayedValue;
-        
         SetText(actualFrom);
         currentDisplayedValue = actualFrom;
-        
         if (targetDamage > 0)
         {
             if (currentAnimation != null)
@@ -141,30 +153,110 @@ public class DamageNotifyAnimation : MonoBehaviour
     }
     
     /// <summary>
-    /// Скрыть уведомление (fade out). Вызывается менеджером после 2 с без урона.
+    /// Корутина анимации — запускается с менеджера (не с DamageNotify), чтобы не требовать activeInHierarchy.
+    /// Не вызывает StartCoroutine, только yield return.
+    /// </summary>
+    public System.Collections.IEnumerator AnimateToAmountCoroutine(double targetDamage)
+    {
+        if (damageText == null || canvasGroup == null)
+        {
+            Initialize();
+            if (damageText == null)
+                yield break;
+        }
+        EnsureActiveInHierarchy();
+        if (damageText != null && !damageText.gameObject.activeSelf)
+            damageText.gameObject.SetActive(true);
+        if (canvasGroup == null)
+        {
+            canvasGroup = GetComponent<CanvasGroup>();
+            if (canvasGroup == null)
+            {
+                canvasGroup = gameObject.AddComponent<CanvasGroup>();
+                canvasGroup.alpha = 1f;
+            }
+        }
+        // Сразу делаем блок и текст видимыми (до первого yield), иначе текст не успевает отрисоваться
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 1f;
+            canvasGroup.interactable = true;
+            canvasGroup.blocksRaycasts = true;
+        }
+        ForceTextVisible();
+        double actualFrom = currentDisplayedValue;
+        if (targetDamage > 0 && currentDisplayedValue > 0)
+            actualFrom = currentDisplayedValue;
+        if (targetDamage <= 0)
+            actualFrom = 0;
+        SetText(actualFrom);
+        currentDisplayedValue = actualFrom;
+        if (targetDamage > 0)
+            yield return AnimateValueCoroutine(actualFrom, targetDamage);
+        else
+        {
+            SetText(0);
+            currentDisplayedValue = 0;
+        }
+        currentAnimation = null;
+    }
+    
+    /// <summary>
+    /// Скрыть уведомление (мгновенно, без корутины на DamageNotify).
     /// </summary>
     public void Hide()
     {
         if (fadeCoroutine != null)
-            StopCoroutine(fadeCoroutine);
+            fadeCoroutine = null;
         if (canvasGroup != null && canvasGroup.alpha > 0.01f)
-            fadeCoroutine = StartCoroutine(FadeOutCoroutine());
+        {
+            canvasGroup.alpha = 0f;
+            canvasGroup.interactable = false;
+            canvasGroup.blocksRaycasts = false;
+        }
     }
     
     private void SetText(double value)
     {
         if (damageText == null) return;
-        damageText.text = FormatDamage(value);
-        damageText.ForceMeshUpdate();
+        if (!damageText.gameObject.activeInHierarchy)
+            damageText.gameObject.SetActive(true);
+        damageText.enabled = true;
+        ForceTextVisible();
+        string s = FormatDamage(value);
+        damageText.text = s;
+        damageText.SetText(s);
+        damageText.ForceMeshUpdate(true);
+        damageText.UpdateMeshPadding();
     }
     
+    /// <summary>Принудительно делает текст видимым (цвет alpha=1, объект активен).</summary>
+    private void ForceTextVisible()
+    {
+        if (damageText == null) return;
+        damageText.gameObject.SetActive(true);
+        damageText.enabled = true;
+        Color c = damageText.color;
+        if (c.a < 0.01f)
+        {
+            c.a = 1f;
+            damageText.color = c;
+        }
+        if (damageText.fontSharedMaterial != null && damageText.fontSharedMaterial.HasProperty("_FaceColor"))
+        {
+            Color face = damageText.fontSharedMaterial.GetColor("_FaceColor");
+            if (face.a < 0.01f)
+            {
+                face.a = 1f;
+                damageText.fontSharedMaterial.SetColor("_FaceColor", face);
+            }
+        }
+    }
+    
+    /// <summary>Форматирует урон только целым числом (без дробной части).</summary>
     private static string FormatDamage(double value)
     {
-        if (value == (long)value && value >= 0)
-            return ((long)value).ToString();
-        if (value == (long)value && value < 0)
-            return ((long)value).ToString();
-        return value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        return ((long)System.Math.Round(value)).ToString();
     }
     
     private IEnumerator AnimateValueCoroutine(double fromValue, double toValue)
@@ -239,5 +331,39 @@ public class DamageNotifyAnimation : MonoBehaviour
             if (found != null) return found;
         }
         return null;
+    }
+    
+    /// <summary>
+    /// Включает DamageNotify и при необходимости родителя, чтобы уведомление отрисовалось.
+    /// Если активируем родителя (OverflowUiContainer), сразу скрываем BalanceNotify, чтобы не показывать уведомление пополнения.
+    /// </summary>
+    private void EnsureActiveInHierarchy()
+    {
+        if (!gameObject.activeSelf)
+            gameObject.SetActive(true);
+        // Если родитель неактивен — мы всё равно не видим. Активируем родителя и скрываем соседа BalanceNotify.
+        if (!gameObject.activeInHierarchy && transform.parent != null)
+        {
+            transform.parent.gameObject.SetActive(true);
+            HideSiblingBalanceNotify();
+        }
+    }
+    
+    /// <summary>
+    /// Скрывает соседний BalanceNotify (общий родитель OverflowUiContainer), чтобы при показе урона не появлялось уведомление пополнения.
+    /// </summary>
+    private void HideSiblingBalanceNotify()
+    {
+        if (transform.parent == null) return;
+        Transform balance = transform.parent.Find("BalanceNotify");
+        if (balance == null) return;
+        var cg = balance.GetComponent<CanvasGroup>();
+        if (cg == null) cg = balance.GetComponentInChildren<CanvasGroup>(true);
+        if (cg != null)
+        {
+            cg.alpha = 0f;
+            cg.interactable = false;
+            cg.blocksRaycasts = false;
+        }
     }
 }

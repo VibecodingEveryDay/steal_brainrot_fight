@@ -22,6 +22,10 @@ public class RedZoneSpawner : MonoBehaviour
     [Tooltip("Множитель для расчета частоты на основе HP босса")]
     [SerializeField] private float hpFrequencyMultiplier = 0.001f;
     
+    [Tooltip("Вероятность (0–1), что зона заспавнится под игроком, а не в случайном месте. По умолчанию 30%")]
+    [Range(0f, 1f)]
+    [SerializeField] private float spawnUnderPlayerChance = 0.3f;
+    
     [Header("Damage Settings")]
     [Tooltip("Базовый урон от красной зоны")]
     [SerializeField] private float baseDamage = 10f;
@@ -47,6 +51,19 @@ public class RedZoneSpawner : MonoBehaviour
     [Tooltip("Ссылка на BattleZone")]
     [SerializeField] private BattleZone battleZone;
     
+    [Tooltip("Земля зоны боя — Y всех зон берётся отсюда. Если не назначен, ищется по имени FightZoneGround")]
+    [SerializeField] private Transform fightZoneGround;
+    
+    [Header("VFX")]
+    [Tooltip("Префаб VFX эффекта зоны (удаляется вместе с зоной)")]
+    [SerializeField] private GameObject vfxPrefab;
+    
+    [Tooltip("Смещение VFX относительно центра зоны (локальные XYZ)")]
+    [SerializeField] private Vector3 vfxOffset = Vector3.zero;
+    
+    [Tooltip("Масштаб VFX (один множитель для XYZ)")]
+    [SerializeField] private float vfxScale = 1f;
+    
     [Header("Debug")]
     [Tooltip("Показывать отладочные сообщения")]
     [SerializeField] private bool debug = false;
@@ -56,13 +73,32 @@ public class RedZoneSpawner : MonoBehaviour
     private float maxBossHP = 0f;
     private Coroutine spawnCoroutine;
     private List<GameObject> activeZones = new List<GameObject>();
+    private Transform playerTransform;
     
     private void Awake()
     {
-        // Автоматически находим BattleZone если не назначена
         if (battleZone == null)
-        {
             battleZone = FindFirstObjectByType<BattleZone>();
+        if (fightZoneGround == null)
+        {
+            GameObject go = GameObject.Find("FightZoneGround");
+            if (go != null)
+                fightZoneGround = go.transform;
+        }
+        FindPlayer();
+    }
+    
+    private void FindPlayer()
+    {
+        if (playerTransform != null) return;
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+            playerTransform = player.transform;
+        else
+        {
+            var controller = FindFirstObjectByType<ThirdPersonController>();
+            if (controller != null)
+                playerTransform = controller.transform;
         }
     }
     
@@ -186,8 +222,17 @@ public class RedZoneSpawner : MonoBehaviour
             return;
         }
         
-        // Получаем случайную позицию для спавна
-        Vector3 spawnPosition = GetRandomSpawnPosition();
+        // С вероятностью spawnUnderPlayerChance спавним под игроком, иначе — в случайном месте
+        Vector3 spawnPosition;
+        if (spawnUnderPlayerChance > 0f && Random.value < spawnUnderPlayerChance)
+        {
+            FindPlayer();
+            spawnPosition = playerTransform != null ? GetPositionUnderPlayer() : GetRandomSpawnPosition();
+        }
+        else
+        {
+            spawnPosition = GetRandomSpawnPosition();
+        }
         
         // Создаем зону
         GameObject zone = Instantiate(redZonePrefab, spawnPosition, Quaternion.identity);
@@ -202,6 +247,25 @@ public class RedZoneSpawner : MonoBehaviour
         float damage = CalculateDamage();
         redZoneComponent.Initialize(zoneRadius, damage, zoneLifetime, warningTime);
         
+        // VFX: спавним как дочерний объект зоны — удалится вместе с зоной; Y задаётся один раз — в сторону игрока
+        if (vfxPrefab != null)
+        {
+            FindPlayer();
+            float angleY = 0f;
+            if (playerTransform != null)
+            {
+                Vector3 toPlayer = playerTransform.position - spawnPosition;
+                toPlayer.y = 0f;
+                if (toPlayer.sqrMagnitude > 0.0001f)
+                    angleY = Mathf.Atan2(toPlayer.x, toPlayer.z) * Mathf.Rad2Deg;
+            }
+            GameObject vfx = Instantiate(vfxPrefab, zone.transform);
+            vfx.transform.localPosition = vfxOffset;
+            vfx.transform.localScale = Vector3.one * vfxScale;
+            // Мировая ротация, затем на следующий кадр — чтобы префаб/ParticleSystem не перезаписали
+            StartCoroutine(SetVfxRotationNextFrame(vfx.transform, 90f, angleY, 0f));
+        }
+        
         // Добавляем в список активных зон
         activeZones.Add(zone);
         
@@ -215,66 +279,61 @@ public class RedZoneSpawner : MonoBehaviour
     }
     
     /// <summary>
-    /// Получает случайную позицию для спавна зоны
+    /// Y плоскости земли зоны боя (FightZoneGround). Все зоны спавнятся на этой высоте.
+    /// </summary>
+    private float GetGroundY()
+    {
+        if (fightZoneGround != null)
+            return fightZoneGround.position.y;
+        if (battleZone != null)
+            return battleZone.transform.position.y;
+        return transform.position.y;
+    }
+    
+    /// <summary>
+    /// Возвращает позицию под игроком на высоте FightZoneGround (X,Z от игрока, Y от земли зоны).
+    /// </summary>
+    private Vector3 GetPositionUnderPlayer()
+    {
+        Vector3 p = playerTransform.position;
+        return new Vector3(p.x, GetGroundY(), p.z);
+    }
+    
+    /// <summary>
+    /// Получает случайную позицию для спавна зоны. X,Z — из области боя, Y — от FightZoneGround.
     /// </summary>
     private Vector3 GetRandomSpawnPosition()
     {
-        Vector3 position = Vector3.zero;
+        float groundY = GetGroundY();
+        Vector3 position;
         
-        // Используем BattleZone для определения области спавна
         if (battleZone != null)
         {
-            // Генерируем случайную позицию в пределах зоны
             Collider zoneCollider = battleZone.GetComponent<Collider>();
             if (zoneCollider != null)
             {
                 Bounds bounds = zoneCollider.bounds;
-                
-                // Генерируем случайные координаты X и Z
                 float randomX = Random.Range(bounds.min.x, bounds.max.x);
                 float randomZ = Random.Range(bounds.min.z, bounds.max.z);
-                
-                // Используем Raycast для определения высоты поверхности
-                RaycastHit hit;
-                Vector3 rayStart = new Vector3(randomX, bounds.max.y + 5f, randomZ);
-                if (Physics.Raycast(rayStart, Vector3.down, out hit, 20f))
-                {
-                    position = hit.point;
-                }
-                else
-                {
-                    position = new Vector3(randomX, bounds.center.y, randomZ);
-                }
+                position = new Vector3(randomX, groundY, randomZ);
             }
             else
             {
-                // Если коллайдера нет, используем позицию зоны
-                position = battleZone.transform.position;
+                Vector3 p = battleZone.transform.position;
+                position = new Vector3(p.x, groundY, p.z);
             }
         }
         else if (spawnArea != null)
         {
-            // Используем назначенную область спавна
             Bounds bounds = spawnArea.bounds;
-            
             float randomX = Random.Range(bounds.min.x, bounds.max.x);
             float randomZ = Random.Range(bounds.min.z, bounds.max.z);
-            
-            RaycastHit hit;
-            Vector3 rayStart = new Vector3(randomX, bounds.max.y + 5f, randomZ);
-            if (Physics.Raycast(rayStart, Vector3.down, out hit, 20f))
-            {
-                position = hit.point;
-            }
-            else
-            {
-                position = new Vector3(randomX, bounds.center.y, randomZ);
-            }
+            position = new Vector3(randomX, groundY, randomZ);
         }
         else
         {
-            // Если ничего не назначено, используем позицию спавнера
-            position = transform.position;
+            Vector3 p = transform.position;
+            position = new Vector3(p.x, groundY, p.z);
         }
         
         return position;
@@ -295,6 +354,18 @@ public class RedZoneSpawner : MonoBehaviour
         if (zone != null)
         {
             Destroy(zone);
+        }
+    }
+    
+    /// <summary>
+    /// Устанавливает мировую ротацию VFX на следующем кадре, чтобы префаб/частицы не перезаписали.
+    /// </summary>
+    private IEnumerator SetVfxRotationNextFrame(Transform vfxTransform, float eulerX, float eulerY, float eulerZ)
+    {
+        yield return null;
+        if (vfxTransform != null)
+        {
+            vfxTransform.rotation = Quaternion.Euler(eulerX, eulerY, eulerZ);
         }
     }
     
@@ -335,6 +406,8 @@ public class RedZone : MonoBehaviour
     private float spawnTime;
     private BattleManager battleManager;
     private Transform playerTransform;
+    /// <summary> Игрок находится внутри триггера зоны (MeshCollider convex isTrigger на префабе). </summary>
+    private bool playerInZone = false;
     
     private void Awake()
     {
@@ -384,8 +457,31 @@ public class RedZone : MonoBehaviour
         // Уничтожаем зону после истечения времени жизни
         if (elapsed >= lifetime)
         {
+            // Если игрок на зоне (в триггере префаба) — телепортируем на базу и заканчиваем бой (удаляем босса)
+            if (playerInZone)
+            {
+                TeleportManager tm = TeleportManager.Instance;
+                if (tm != null)
+                    tm.TeleportToHouse();
+                if (battleManager != null)
+                    battleManager.EndBattle();
+            }
             Destroy(gameObject);
         }
+    }
+    
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other == null) return;
+        if (other.CompareTag("Player") || other.GetComponent<ThirdPersonController>() != null)
+            playerInZone = true;
+    }
+    
+    private void OnTriggerExit(Collider other)
+    {
+        if (other == null) return;
+        if (other.CompareTag("Player") || other.GetComponent<ThirdPersonController>() != null)
+            playerInZone = false;
     }
     
     /// <summary>
@@ -400,30 +496,36 @@ public class RedZone : MonoBehaviour
     }
     
     /// <summary>
-    /// Создает визуальное представление зоны
+    /// Создает визуальное представление зоны.
+    /// Если у префаба уже есть Renderer (цилиндр и т.д.), только применяем материал — не создаём лишний белый цилиндр.
     /// </summary>
     private void CreateZoneVisual()
     {
-        // Создаем цилиндр для визуализации зоны
+        Renderer existingRenderer = GetComponentInChildren<Renderer>();
+        if (existingRenderer != null)
+        {
+            // Префаб уже содержит визуал (цилиндр) — только применяем материал предупреждения
+            if (warningMaterial != null)
+            {
+                existingRenderer.material = warningMaterial;
+            }
+            return;
+        }
+        
+        // Визуала нет — создаём цилиндр для визуализации зоны
         GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         visual.name = "RedZoneVisual";
         visual.transform.SetParent(transform);
         visual.transform.localPosition = Vector3.zero;
         visual.transform.localScale = new Vector3(radius * 2f, 0.1f, radius * 2f);
         
-        // Удаляем коллайдер (он не нужен)
-        Collider collider = visual.GetComponent<Collider>();
-        if (collider != null)
-        {
-            Destroy(collider);
-        }
+        Collider col = visual.GetComponent<Collider>();
+        if (col != null)
+            Destroy(col);
         
-        // Устанавливаем материал предупреждения
         Renderer renderer = visual.GetComponent<Renderer>();
         if (renderer != null && warningMaterial != null)
-        {
             renderer.material = warningMaterial;
-        }
     }
     
     /// <summary>

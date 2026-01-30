@@ -16,6 +16,9 @@ public class DamageNotifyManager : MonoBehaviour
     [Tooltip("Объект DamageNotify (если не назначен — ищется по имени в сцене)")]
     [SerializeField] private GameObject damageNotify;
     
+    [Tooltip("Объект для запуска корутин, если этот скрипт висит на неактивном DamageNotify (например BattleManager). Не назначен — подставляется BattleManager автоматически.")]
+    [SerializeField] private MonoBehaviour coroutineRunner;
+    
     [Header("Debug")]
     [SerializeField] private bool debug = false;
     
@@ -23,6 +26,8 @@ public class DamageNotifyManager : MonoBehaviour
     private double totalDamage;
     private float lastDamageTime;
     private bool notificationHidden;
+    private Coroutine damageAnimationCoroutine;
+    private MonoBehaviour _effectiveRunner;
     
     private void Awake()
     {
@@ -54,6 +59,13 @@ public class DamageNotifyManager : MonoBehaviour
         }
     }
     
+    private IEnumerator RunDamageAnimationCoroutine(double totalDamage)
+    {
+        if (notifyAnimation != null)
+            yield return notifyAnimation.AnimateToAmountCoroutine(totalDamage);
+        damageAnimationCoroutine = null;
+    }
+    
     private void FindDamageNotify()
     {
         if (damageNotify == null)
@@ -71,6 +83,13 @@ public class DamageNotifyManager : MonoBehaviour
             notifyAnimation = damageNotify.GetComponent<DamageNotifyAnimation>();
             if (notifyAnimation == null)
                 notifyAnimation = damageNotify.GetComponentInChildren<DamageNotifyAnimation>(true);
+            // Если скрипт не висит в сцене — добавляем в рантайме, чтобы текст показывался
+            if (notifyAnimation == null)
+            {
+                notifyAnimation = damageNotify.AddComponent<DamageNotifyAnimation>();
+                if (debug)
+                    Debug.Log("[DamageNotifyManager] DamageNotifyAnimation добавлен на DamageNotify в рантайме.");
+            }
             
             if (notifyAnimation == null && debug)
                 Debug.LogWarning("[DamageNotifyManager] DamageNotifyAnimation не найден на DamageNotify.");
@@ -99,16 +118,43 @@ public class DamageNotifyManager : MonoBehaviour
             FindDamageNotify();
         if (notifyAnimation == null) return;
         
+        MonoBehaviour runner = GetEffectiveCoroutineRunner();
+        if (runner == null)
+        {
+            if (debug)
+                Debug.LogWarning("[DamageNotifyManager] Нет активного объекта для запуска корутины.");
+            return;
+        }
+        
         try
         {
-            notifyAnimation.AnimateToAmount(totalDamage);
+            if (damageAnimationCoroutine != null && _effectiveRunner != null)
+                _effectiveRunner.StopCoroutine(damageAnimationCoroutine);
+            _effectiveRunner = runner;
+            damageAnimationCoroutine = runner.StartCoroutine(RunDamageAnimationCoroutine(totalDamage));
             if (debug)
                 Debug.Log($"[DamageNotifyManager] Урон: +{amount}, всего за бой: {totalDamage}");
         }
         catch (System.Exception e)
         {
-            Debug.LogError($"[DamageNotifyManager] Ошибка AnimateToAmount: {e.Message}");
+            Debug.LogError($"[DamageNotifyManager] Ошибка анимации урона: {e.Message}");
         }
+    }
+    
+    /// <summary>
+    /// Возвращает MonoBehaviour, на котором можно запускать корутины.
+    /// Если этот объект неактивен (например менеджер висит на DamageNotify) — используем coroutineRunner или BattleManager.
+    /// </summary>
+    private MonoBehaviour GetEffectiveCoroutineRunner()
+    {
+        if (gameObject.activeInHierarchy)
+            return this;
+        if (coroutineRunner != null && coroutineRunner.gameObject.activeInHierarchy)
+            return coroutineRunner;
+        var bm = BattleManager.Instance;
+        if (bm != null && bm.gameObject.activeInHierarchy)
+            return bm;
+        return null;
     }
     
     /// <summary>

@@ -1,12 +1,36 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
 
 /// <summary>
+/// Набор шансов редкостей для одной области уровней (в процентах 0-100).
+/// </summary>
+[System.Serializable]
+public class RarityChanceSet
+{
+    [Tooltip("Common 0-100")]
+    public float commonChance = 50f;
+    [Tooltip("Rare 0-100")]
+    public float rareChance = 25f;
+    [Tooltip("Exclusive 0-100")]
+    public float exclusiveChance = 15f;
+    [Tooltip("Epic 0-100")]
+    public float epicChance = 7f;
+    [Tooltip("Mythic 0-100")]
+    public float mythicChance = 2f;
+    [Tooltip("Legendary 0-100")]
+    public float legendaryChance = 0.8f;
+    [Tooltip("Secret 0-100")]
+    public float secretChance = 0.2f;
+}
+
+/// <summary>
 /// Кнопка для получения брейнрота.
 /// При взаимодействии спавнит случайный брейнрот рядом с кнопкой.
+/// Шансы редкостей зависят от уровня силы персонажа (5 областей: 10-20, 20-30, 30-40, 40-50, 50-60).
 /// </summary>
 public class BrainrotSpawnButton : InteractableObject
 {
@@ -42,6 +66,18 @@ public class BrainrotSpawnButton : InteractableObject
     [Tooltip("Шанс появления Secret брейнрота (0-100)")]
     [SerializeField] private float secretChance = 0.2f;
     
+    [Header("Области по уровню силы (10-60). Если заданы — используются вместо шансов выше.")]
+    [Tooltip("Область 1: уровни 10–20")]
+    [SerializeField] private RarityChanceSet area1_10_20;
+    [Tooltip("Область 2: уровни 20–30")]
+    [SerializeField] private RarityChanceSet area2_20_30;
+    [Tooltip("Область 3: уровни 30–40")]
+    [SerializeField] private RarityChanceSet area3_30_40;
+    [Tooltip("Область 4: уровни 40–50")]
+    [SerializeField] private RarityChanceSet area4_40_50;
+    [Tooltip("Область 5: уровни 50–60")]
+    [SerializeField] private RarityChanceSet area5_50_60;
+    
     [Header("BaseIncome")]
     [Tooltip("Минимальный базовый доход")]
     [SerializeField] private long baseIncomeMin = 100;
@@ -76,6 +112,7 @@ public class BrainrotSpawnButton : InteractableObject
     // Дверь: мировая Y в закрытом состоянии (запоминается в Start)
     private float doorClosedY;
     private bool isDoorOpen = false;
+    private Coroutine doorCoroutine;
     
     // Последний заспавненный брейнрот (для позиции Boss VFX)
     private Transform lastSpawnedBrainrotTransform;
@@ -91,11 +128,72 @@ public class BrainrotSpawnButton : InteractableObject
     
     private void Awake()
     {
-        // Загружаем префабы брейнротов
         LoadBrainrotPrefabs();
-        
-        // Нормализуем шансы редкостей
         NormalizeRarityChances();
+    }
+    
+    /// <summary>Индекс области по уровню силы: 0 = 10–20, 1 = 20–30, 2 = 30–40, 3 = 40–50, 4 = 50–60.</summary>
+    private static int GetAreaIndexForLevel(int level)
+    {
+        level = Mathf.Clamp(level, 10, 60);
+        int index = (level - 10) / 10;
+        return Mathf.Min(index, 4);
+    }
+    
+    /// <summary>Возвращает набор шансов для области (0–4). Если область не задана — null.</summary>
+    private RarityChanceSet GetChanceSetForArea(int areaIndex)
+    {
+        switch (areaIndex)
+        {
+            case 0: return area1_10_20;
+            case 1: return area2_20_30;
+            case 2: return area3_30_40;
+            case 3: return area4_40_50;
+            case 4: return area5_50_60;
+            default: return null;
+        }
+    }
+    
+    private static bool HasAnyChance(RarityChanceSet set)
+    {
+        if (set == null) return false;
+        return set.commonChance > 0f || set.rareChance > 0f || set.exclusiveChance > 0f
+            || set.epicChance > 0f || set.mythicChance > 0f || set.legendaryChance > 0f || set.secretChance > 0f;
+    }
+    
+    private static Dictionary<string, float> BuildChancesFromSet(RarityChanceSet set)
+    {
+        var d = new Dictionary<string, float>();
+        if (set == null) return d;
+        d["Common"] = set.commonChance;
+        d["Rare"] = set.rareChance;
+        d["Exclusive"] = set.exclusiveChance;
+        d["Epic"] = set.epicChance;
+        d["Mythic"] = set.mythicChance;
+        d["Legendary"] = set.legendaryChance;
+        d["Secret"] = set.secretChance;
+        return d;
+    }
+    
+    /// <summary>
+    /// Нормализует шансы так, чтобы сумма была 100%. Редкости с явным 0 остаются 0 (не раздаём им остаток).
+    /// </summary>
+    private static void NormalizeChanceDictionary(Dictionary<string, float> chances)
+    {
+        float sum = 0f;
+        foreach (string r in new[] { "Common", "Rare", "Exclusive", "Epic", "Mythic", "Legendary", "Secret" })
+        {
+            float c = chances.ContainsKey(r) ? chances[r] : 0f;
+            if (c > 0f) sum += c;
+        }
+        if (sum <= 0f) return;
+        float scale = 100f / sum;
+        foreach (string r in new[] { "Common", "Rare", "Exclusive", "Epic", "Mythic", "Legendary", "Secret" })
+        {
+            if (!chances.ContainsKey(r)) chances[r] = 0f;
+            if (chances[r] > 0f)
+                chances[r] = chances[r] * scale;
+        }
     }
     
     private void Start()
@@ -155,8 +253,9 @@ public class BrainrotSpawnButton : InteractableObject
         
         if (doorTransform != null)
         {
-            // Всё в корутине: закрыть дверь → удалить unfought → спавнить нового → открыть дверь
-            StartCoroutine(RunDoorSequence());
+            if (doorCoroutine != null)
+                StopCoroutine(doorCoroutine);
+            doorCoroutine = StartCoroutine(RunDoorSequence());
         }
         else
         {
@@ -222,6 +321,29 @@ public class BrainrotSpawnButton : InteractableObject
         // Открыть дверь
         yield return AnimateDoorY(doorClosedY + doorOpenOffsetY, doorOpenCloseDuration);
         isDoorOpen = true;
+        doorCoroutine = null;
+    }
+    
+    /// <summary>
+    /// Закрыть дверь (вызывается при начале боя с боссом). Анимация до закрытого положения.
+    /// </summary>
+    public void CloseDoor()
+    {
+        if (doorTransform == null) return;
+        if (doorCoroutine != null)
+        {
+            StopCoroutine(doorCoroutine);
+            doorCoroutine = null;
+        }
+        doorCoroutine = StartCoroutine(CloseDoorCoroutine());
+    }
+    
+    private IEnumerator CloseDoorCoroutine()
+    {
+        if (doorTransform == null) { doorCoroutine = null; yield break; }
+        yield return AnimateDoorY(doorClosedY, doorOpenCloseDuration);
+        isDoorOpen = false;
+        doorCoroutine = null;
     }
     
     /// <summary>
@@ -373,26 +495,39 @@ public class BrainrotSpawnButton : InteractableObject
     }
     
     /// <summary>
-    /// Выбирает случайную редкость на основе нормализованных шансов
+    /// Выбирает случайную редкость по шансам области, соответствующей уровню силы (10–60).
     /// </summary>
     private string GetRandomRarity()
     {
-        // Генерируем случайное число от 0 до 100
-        float randomValue = Random.Range(0f, 100f);
+        int level = 10;
+        if (GameStorage.Instance != null)
+            level = Mathf.Clamp(GameStorage.Instance.GetAttackPowerLevel(), 10, 60);
         
-        // Проходим по редкостям и находим диапазон, в который попало число
+        int areaIndex = GetAreaIndexForLevel(level);
+        RarityChanceSet set = GetChanceSetForArea(areaIndex);
+        Dictionary<string, float> chances;
+        
+        if (HasAnyChance(set))
+        {
+            chances = BuildChancesFromSet(set);
+            NormalizeChanceDictionary(chances);
+        }
+        else
+        {
+            chances = new Dictionary<string, float>();
+            foreach (string r in allRarities)
+                chances[r] = normalizedRarityChances.ContainsKey(r) ? normalizedRarityChances[r] : 0f;
+        }
+        
+        float randomValue = Random.Range(0f, 100f);
         float currentSum = 0f;
         foreach (string rarity in allRarities)
         {
-            float chance = normalizedRarityChances[rarity];
+            float chance = chances.ContainsKey(rarity) ? chances[rarity] : 0f;
             if (randomValue >= currentSum && randomValue < currentSum + chance)
-            {
                 return rarity;
-            }
             currentSum += chance;
         }
-        
-        // Если не попали ни в один диапазон (из-за ошибок округления), возвращаем последнюю
         return allRarities[allRarities.Length - 1];
     }
     

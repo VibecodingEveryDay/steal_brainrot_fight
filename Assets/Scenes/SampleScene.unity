@@ -614,9 +614,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 052f55a716274a64091b0128f3981ad1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Guide
-  brainrotPrefab: {fileID: 1623980075715673175, guid: 0e1fe1050e257f549984159ae558d6e8, type: 3}
   guidanceLinePrefab: {fileID: 6649169847560765184, guid: e3af233da64b07b43af20d2dbb5b3295, type: 3}
-  brainrotSpawnPosition: {x: -4.581578, y: 0, z: 15.31983}
+  spawnBrainrotButtonTransform: {fileID: 2115777501}
 --- !u!4 &35589852
 Transform:
   m_ObjectHideFlags: 0
@@ -1127,7 +1126,7 @@ MonoBehaviour:
   bossVisualHeight: 0
   targetBossY: -369
   prefabTestY: 0
-  attackZoneRadius: 0.75
+  attackZoneRadius: 0.45
   attackZoneHeight: 1
   drawAttackZoneGizmo: 1
   attackZoneGizmoColorIn: {r: 0, g: 1, b: 0, a: 0.3}
@@ -1233,7 +1232,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 106ad85c2eddceb42a18cc78538927bd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BalanceNotifyManager
-  updateInterval: 0.01
+  idleResetSeconds: 3
+  checkInterval: 0.5
   balanceNotify: {fileID: 107402747}
   debug: 1
 --- !u!1 &116842780
@@ -4439,6 +4439,32 @@ MonoBehaviour:
   allyBaseHP: 50
   bossHPDivider: 30
   bossHPMultiplier: 1
+  damageByLevelScaler:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 10
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 60
+      value: 2
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  minPowerLevel: 10
+  maxPowerLevel: 60
   playerTransform: {fileID: 964703212}
   bossController: {fileID: 74431890}
   redZoneSpawner: {fileID: 0}
@@ -7085,6 +7111,67 @@ Transform:
   - {fileID: 1597703337}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &761862916
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 761862917}
+  - component: {fileID: 761862918}
+  m_Layer: 0
+  m_Name: FightZonesSpawner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &761862917
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 761862916}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -3.0679157, y: 370, z: -14.208431}
+  m_LocalScale: {x: 0.023419203, y: 1, z: 0.023419203}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1155771501}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &761862918
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 761862916}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f85e7684533159e46ab9ab8d306bdd71, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RedZoneSpawner
+  redZonePrefab: {fileID: 2053326109740205510, guid: b10dc5afcd6c113488bef1efbdc499f6, type: 3}
+  baseSpawnInterval: 3
+  minSpawnInterval: 1.5
+  hpFrequencyMultiplier: 0.001
+  spawnUnderPlayerChance: 0.338
+  baseDamage: 10
+  hpDamageMultiplier: 0.01
+  zoneRadius: 2
+  zoneLifetime: 1.75
+  warningTime: 1
+  spawnArea: {fileID: 1502638343}
+  battleZone: {fileID: 1502638342}
+  fightZoneGround: {fileID: 0}
+  vfxPrefab: {fileID: 5985634496115995773, guid: 463cf9f7af4680240898f6aeba3fe3e6, type: 3}
+  vfxOffset: {x: 0, y: 25, z: 0}
+  vfxScale: 0.15
+  debug: 0
 --- !u!1 &763596422
 GameObject:
   m_ObjectHideFlags: 0
@@ -8220,7 +8307,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShopPowerManager
   startingPowerLevel: 10
-  levelPrices: e803000000000000dc05000000000000d007000000000000881300000000000010270000000000000000000000000000983a000000000000000000000000000000000000000000000000000000000000a861000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0c62d0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000808d5b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000809698000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e1f5050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ca9a3b00000000
+  levelPrices: e803000000000000dc05000000000000d00700000000000088130000000000001027000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001027000000000000e02e000000000000204e000000000000a861000000000000b88800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e093040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000808d5b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000809698000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e1f5050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ca9a3b00000000
   powerBarsContainer: {fileID: 0}
   debug: 0
 --- !u!1 &862664078
@@ -9103,13 +9190,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b78a82416ab85c047ae63825670d1de3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerCombatController
-  attackKey: 101
   attackCooldown: 0.5
-  baseAttackDamage: 10
+  baseAttackDamage: 12
   attackRange: 3
   thirdPersonController: {fileID: 964703213}
   attackVFXPrefab: {fileID: 1141330259687333427, guid: 6718dc24203da53468af9ada8fef7d6d, type: 3}
   vfxCountPerAttack: 5
+  maxActiveVFX: 12
   vfxOffsetX: 0
   vfxOffsetY: 1
   vfxOffsetZ: 3
@@ -9169,15 +9256,15 @@ RectTransform:
   m_GameObject: {fileID: 975574256}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 1.69, y: 1.69, z: 1.69}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 1563404183}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 320}
-  m_SizeDelta: {x: 200, y: 50}
+  m_AnchoredPosition: {x: 0.000015259, y: 84}
+  m_SizeDelta: {x: 202.7144, y: 42.3092}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &975574258
 MonoBehaviour:
@@ -9199,17 +9286,17 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: New Text
+  m_text: 
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: db5ae02a063626948b76e84765324a7d, type: 2}
+  m_sharedMaterial: {fileID: -7773738702150163660, guid: db5ae02a063626948b76e84765324a7d, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
-  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
+    rgba: 4278255409
+  m_fontColor: {r: 0.19308197, g: 1, b: 0, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -10185,6 +10272,7 @@ Transform:
   - {fileID: 1223537880}
   - {fileID: 448875946}
   - {fileID: 1502638339}
+  - {fileID: 761862917}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1155771502
@@ -13111,8 +13199,8 @@ Transform:
   m_GameObject: {fileID: 1502638338}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.16861819, y: 0, z: -0.3021083}
-  m_LocalScale: {x: 0.50679153, y: 0.50679153, z: 0.50679153}
+  m_LocalPosition: {x: -0.491, y: 0, z: 0.81}
+  m_LocalScale: {x: 0.25, y: 0.25, z: 0.25}
   m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 1155771501}
@@ -13713,6 +13801,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1563404183}
+  - component: {fileID: 1563404184}
+  - component: {fileID: 1563404185}
   m_Layer: 5
   m_Name: DamageNotify
   m_TagString: Untagged
@@ -13729,17 +13819,74 @@ RectTransform:
   m_GameObject: {fileID: 1563404182}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 0.87, y: 0.87, z: 0.87}
+  m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 975574257}
   m_Father: {fileID: 1717359325}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 100, y: 100}
+  m_AnchoredPosition: {x: 0, y: 327.25998}
+  m_SizeDelta: {x: 728.5911, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1563404184
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1563404182}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6e60fc041cb4104bb0d879a3fe364d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DamageNotifyManager
+  hideAfterNoDamageSeconds: 2
+  damageNotify: {fileID: 1563404182}
+  coroutineRunner: {fileID: 0}
+  debug: 1
+--- !u!114 &1563404185
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1563404182}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7260cf8d4ec45494382530c3a762edf2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DamageNotifyAnimation
+  damageText: {fileID: 975574258}
+  canvasGroup: {fileID: 0}
+  animationDuration: 1
+  animationCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  fadeInDuration: 0.2
+  fadeOutDuration: 0.4
 --- !u!1 &1567396199
 GameObject:
   m_ObjectHideFlags: 0
@@ -18444,14 +18591,54 @@ MonoBehaviour:
   mythicChance: 2
   legendaryChance: 0.8
   secretChance: 0.2
+  area1_10_20:
+    commonChance: 50
+    rareChance: 25
+    exclusiveChance: 15
+    epicChance: 7
+    mythicChance: 2
+    legendaryChance: 0.8
+    secretChance: 0.2
+  area2_20_30:
+    commonChance: 25
+    rareChance: 40
+    exclusiveChance: 25
+    epicChance: 7
+    mythicChance: 2
+    legendaryChance: 1
+    secretChance: 0
+  area3_30_40:
+    commonChance: 0
+    rareChance: 25
+    exclusiveChance: 15
+    epicChance: 25
+    mythicChance: 15
+    legendaryChance: 2
+    secretChance: 2
+  area4_40_50:
+    commonChance: 0
+    rareChance: 0
+    exclusiveChance: 0
+    epicChance: 25
+    mythicChance: 50
+    legendaryChance: 15
+    secretChance: 10
+  area5_50_60:
+    commonChance: 0
+    rareChance: 0
+    exclusiveChance: 0
+    epicChance: 0
+    mythicChance: 50
+    legendaryChance: 25
+    secretChance: 25
   baseIncomeMin: 100
-  baseIncomeMax: 1000
+  baseIncomeMax: 2000
   doorTransform: {fileID: 571863985}
   doorOpenOffsetY: 18
   doorOpenCloseDuration: 0.5
   bossVfxPrefab: {fileID: 3280519133390621005, guid: a71be3e7990efb040a07565c43cbb198, type: 3}
   bossVfxOffset: {x: 0, y: -0.95, z: 0}
-  bossVfxScale: 6
+  bossVfxScale: 4
   debug: 0
 --- !u!114 &2120123958 stripped
 MonoBehaviour:

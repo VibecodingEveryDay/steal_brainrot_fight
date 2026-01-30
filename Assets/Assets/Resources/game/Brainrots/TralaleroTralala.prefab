@@ -173,7 +173,7 @@ MonoBehaviour:
   carryOffsetZ: 1.5
   carryRotationY: 0
   putOffsetX: 0
-  putOffsetY: 0
+  putOffsetY: -0.42
   putOffsetZ: 0
   placementScale: {x: 0.75, y: 0.75, z: 0.75}
   placementOffsetX: 0

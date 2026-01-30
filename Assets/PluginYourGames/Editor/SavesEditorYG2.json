@@ -1,168 +1,124 @@
 {
-    "balanceCount": 157,
+    "balanceCount": 15,
     "balanceScaler": "M",
     "Brainrots": [],
-    "PlayerSpeedLevel": 27,
+    "PlayerSpeedLevel": 16,
     "PurchasedSafeZones": [],
     "PlacedBrainrots": [
+        {
+            "placementID": 11,
+            "brainrotName": "KarkerkarKurkur",
+            "level": 0,
+            "rarity": "Exclusive",
+            "baseIncome": 936
+        },
         {
             "placementID": 4,
             "brainrotName": "KarkerkarKurkur",
             "level": 0,
-            "rarity": "Common",
-            "baseIncome": 266
+            "rarity": "Exclusive",
+            "baseIncome": 549
         },
         {
             "placementID": 6,
             "brainrotName": "Pakrahmatmamat",
             "level": 0,
-            "rarity": "Common",
-            "baseIncome": 544
-        },
-        {
-            "placementID": 7,
-            "brainrotName": "GraipussMedussi",
-            "level": 0,
-            "rarity": "Common",
-            "baseIncome": 192
-        },
-        {
-            "placementID": 0,
-            "brainrotName": "BallerinaCappuccina",
-            "level": 0,
             "rarity": "Rare",
-            "baseIncome": 774
-        },
-        {
-            "placementID": 3,
-            "brainrotName": "TralaleroTralala",
-            "level": 0,
-            "rarity": "Exclusive",
-            "baseIncome": 116
-        },
-        {
-            "placementID": 2,
-            "brainrotName": "BallerinaCappuccina",
-            "level": 0,
-            "rarity": "Common",
-            "baseIncome": 435
+            "baseIncome": 781
         },
         {
             "placementID": 1,
-            "brainrotName": "TorrtuginniDragonfrutini",
+            "brainrotName": "BallerinaCappuccina",
             "level": 0,
-            "rarity": "Exclusive",
-            "baseIncome": 474
+            "rarity": "Rare",
+            "baseIncome": 900
+        },
+        {
+            "placementID": 2,
+            "brainrotName": "KetupatKepat",
+            "level": 0,
+            "rarity": "Rare",
+            "baseIncome": 484
         },
         {
             "placementID": 5,
-            "brainrotName": "TralaleroTralala",
-            "level": 0,
-            "rarity": "Exclusive",
-            "baseIncome": 113
-        },
-        {
-            "placementID": 11,
-            "brainrotName": "Pakrahmatmamat",
-            "level": 0,
-            "rarity": "Rare",
-            "baseIncome": 289
-        },
-        {
-            "placementID": 10,
-            "brainrotName": "BisonteGiuppitere",
+            "brainrotName": "JobJobJobSahur",
             "level": 0,
             "rarity": "Common",
-            "baseIncome": 769
+            "baseIncome": 832
+        },
+        {
+            "placementID": 0,
+            "brainrotName": "KetupatKepat",
+            "level": 0,
+            "rarity": "Exclusive",
+            "baseIncome": 862
+        },
+        {
+            "placementID": 7,
+            "brainrotName": "KarkerkarKurkur",
+            "level": 0,
+            "rarity": "Exclusive",
+            "baseIncome": 119
+        },
+        {
+            "placementID": 3,
+            "brainrotName": "BisonteGiuppitere",
+            "level": 0,
+            "rarity": "Exclusive",
+            "baseIncome": 758
         },
         {
             "placementID": 12,
-            "brainrotName": "TungTungTungSahur",
-            "level": 0,
-            "rarity": "Epic",
-            "baseIncome": 504
-        },
-        {
-            "placementID": 14,
-            "brainrotName": "67",
-            "level": 20,
-            "rarity": "Common",
-            "baseIncome": 771
-        },
-        {
-            "placementID": 13,
-            "brainrotName": "TungTungTungSahur",
+            "brainrotName": "BallerinaCappuccina",
             "level": 0,
             "rarity": "Exclusive",
-            "baseIncome": 905
-        },
-        {
-            "placementID": 15,
-            "brainrotName": "TungTungTungSahur",
-            "level": 0,
-            "rarity": "Exclusive",
-            "baseIncome": 161
+            "baseIncome": 318
         }
     ],
     "EarnPanelBalances": [
         {
-            "panelID": 3,
-            "accumulatedBalance": 53360.0
-        },
-        {
-            "panelID": 2,
-            "accumulatedBalance": 19575.0
-        },
-        {
-            "panelID": 4,
-            "accumulatedBalance": 10374.0
+            "panelID": 6,
+            "accumulatedBalance": 640420.0
         },
         {
             "panelID": 5,
-            "accumulatedBalance": 25990.0
+            "accumulatedBalance": 136448.0
         },
         {
-            "panelID": 1,
-            "accumulatedBalance": 208560.0
-        },
-        {
-            "panelID": 0,
-            "accumulatedBalance": 166410.0
-        },
-        {
-            "panelID": 6,
-            "accumulatedBalance": 8704.0
+            "panelID": 4,
+            "accumulatedBalance": 905850.0
         },
         {
             "panelID": 7,
-            "accumulatedBalance": 384.0
+            "accumulatedBalance": 195160.0
+        },
+        {
+            "panelID": 3,
+            "accumulatedBalance": 1235540.0
+        },
+        {
+            "panelID": 2,
+            "accumulatedBalance": 394460.0
+        },
+        {
+            "panelID": 1,
+            "accumulatedBalance": 733500.0
+        },
+        {
+            "panelID": 0,
+            "accumulatedBalance": 4387580.0
         },
         {
             "panelID": 11,
-            "accumulatedBalance": 34680.0
-        },
-        {
-            "panelID": 10,
-            "accumulatedBalance": 30760.0
-        },
-        {
-            "panelID": 14,
-            "accumulatedBalance": 680022.0
-        },
-        {
-            "panelID": 15,
-            "accumulatedBalance": 1610.0
+            "accumulatedBalance": 1535040.0
         },
         {
             "panelID": 12,
-            "accumulatedBalance": 1335600.0
-        },
-        {
-            "panelID": 13,
-            "accumulatedBalance": 144800.0
+            "accumulatedBalance": 518340.0
         }
     ],
-    "AttackPowerLevel": 43,
+    "AttackPowerLevel": 31,
     "CurrentUltimate": "IsStrongBeat1",
     "intExample": 5,
     "strExample": "Hello!",
@@ -172,5 +128,5 @@
         false,
         false
     ],
-    "idSave": 40803
+    "idSave": 46403
 }

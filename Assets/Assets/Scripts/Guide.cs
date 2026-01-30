@@ -6,23 +6,17 @@ using UnityEngine;
 public class Guide : MonoBehaviour
 {
     [Header("Префабы")]
-    [Tooltip("Префаб брейнрота для спавна")]
-    [SerializeField] private GameObject brainrotPrefab;
-    
     [Tooltip("Префаб GuidanceLine")]
     [SerializeField] private GameObject guidanceLinePrefab;
     
-    [Header("Настройки спавна")]
-    [Tooltip("Позиция спавна брейнрота")]
-    [SerializeField] private Vector3 brainrotSpawnPosition = new Vector3(-4.581578f, 0f, 15.31983f);
+    [Header("Цели")]
+    [Tooltip("Transform кнопки спавна брейнрота. Если на карте нет unfought брейнротов — линия ведёт на кнопку.")]
+    [SerializeField] private Transform spawnBrainrotButtonTransform;
     
-    private GameObject spawnedBrainrot;
     private GameObject guidanceLineInstance;
     private GuidanceLine.GuidanceLine guidanceLineScript;
-    private BrainrotObject brainrotObject;
     private GameObject tempTargetObject; // Временный объект для позиции панели
     private PlayerCarryController playerCarryController;
-    private bool hasSpawnedBrainrot = false;
     
     void Start()
     {
@@ -43,52 +37,10 @@ public class Guide : MonoBehaviour
     
     void Update()
     {
-        // Проверяем баланс игрока
-        if (GameStorage.Instance == null)
-            return;
-            
-        int balance = GameStorage.Instance.GetBalance();
-        
-        // Если баланс 0 и брейнрот еще не заспавнен - спавним guide брейнрота
-        if (balance == 0 && !hasSpawnedBrainrot)
-        {
-            SpawnBrainrot();
-        }
-        
-        // Если guidanceline создана, обновляем endPos в зависимости от состояния
         if (guidanceLineScript != null)
         {
             UpdateGuidanceLineTarget();
         }
-    }
-    
-    void SpawnBrainrot()
-    {
-        if (brainrotPrefab == null)
-        {
-            Debug.LogError("[Guide] Префаб брейнрота не назначен!");
-            return;
-        }
-        
-        // Спавним брейнрота
-        spawnedBrainrot = Instantiate(brainrotPrefab, brainrotSpawnPosition, Quaternion.identity);
-        brainrotObject = spawnedBrainrot.GetComponent<BrainrotObject>();
-        
-        if (brainrotObject == null)
-        {
-            Debug.LogError("[Guide] У префаба брейнрота нет компонента BrainrotObject!");
-            return;
-        }
-        
-        hasSpawnedBrainrot = true;
-        
-        // Устанавливаем заспавненного брейнрота как endPoint для guidanceline
-        if (guidanceLineScript != null)
-        {
-            guidanceLineScript.SetEndPoint(spawnedBrainrot.transform);
-        }
-        
-        Debug.Log("[Guide] Брейнрот заспавнен");
     }
     
     void CreateGuidanceLine()
@@ -169,127 +121,115 @@ public class Guide : MonoBehaviour
             hasBrainrotInHands = (carriedObject != null);
         }
         
-        // Если в руках есть брейнрот - ведем к ближайшему пустому placement
+        // Если в руках есть брейнрот — ведём к ближайшему пустому placement, иначе к любому placement
         if (hasBrainrotInHands)
         {
-            PlacementPanel nearestEmptyPanel = FindNearestEmptyPlacement();
+            PlacementPanel targetPanel = FindNearestEmptyPlacement();
+            if (targetPanel == null)
+                targetPanel = FindNearestPlacement();
             
-            if (nearestEmptyPanel != null)
+            if (targetPanel != null)
             {
-                // Создаем временный объект для позиции панели, если его еще нет
                 if (tempTargetObject == null)
-                {
                     tempTargetObject = new GameObject("Guide_TempTarget");
-                }
-                
-                // Обновляем позицию временного объекта
-                Vector3 panelPosition = nearestEmptyPanel.GetPlacementPosition();
-                tempTargetObject.transform.position = panelPosition;
-                
-                // Устанавливаем endPos на панель
+                tempTargetObject.transform.position = targetPanel.GetPlacementPosition();
+                SetLineEnabled(true);
                 Transform currentEndPoint = guidanceLineScript.GetEndPoint();
                 if (currentEndPoint != tempTargetObject.transform)
-                {
                     guidanceLineScript.SetEndPoint(tempTargetObject.transform);
-                }
             }
             else
             {
-                // Если нет пустых панелей, скрываем линию (но не удаляем)
-                if (guidanceLineScript != null)
-                {
-                    LineRenderer lineRenderer = guidanceLineInstance?.GetComponent<LineRenderer>();
-                    if (lineRenderer != null)
-                    {
-                        lineRenderer.enabled = false;
-                    }
-                }
+                SetLineEnabled(false);
             }
         }
         else
         {
-            // Если в руках нет брейнрота - ведем к ближайшему брейнроту
-            Transform nearestBrainrotTransform = FindNearestBrainrot();
+            // В руках нет брейнрота: ведём на unfought брейнрота или на кнопку спавна
+            Transform target = FindNearestUnfoughtBrainrot();
+            if (target == null && spawnBrainrotButtonTransform != null)
+                target = spawnBrainrotButtonTransform;
             
-            if (nearestBrainrotTransform != null)
+            if (target != null)
             {
-                // Включаем линию, если она была скрыта
-                LineRenderer lineRenderer = guidanceLineInstance?.GetComponent<LineRenderer>();
-                if (lineRenderer != null)
-                {
-                    lineRenderer.enabled = true;
-                }
-                
-                // Устанавливаем endPos на ближайший брейнрот
+                SetLineEnabled(true);
                 Transform currentEndPoint = guidanceLineScript.GetEndPoint();
-                if (currentEndPoint != nearestBrainrotTransform)
-                {
-                    guidanceLineScript.SetEndPoint(nearestBrainrotTransform);
-                }
+                if (currentEndPoint != target)
+                    guidanceLineScript.SetEndPoint(target);
             }
             else
             {
-                // Если нет доступных брейнротов, скрываем линию (но не удаляем)
-                LineRenderer lineRenderer = guidanceLineInstance?.GetComponent<LineRenderer>();
-                if (lineRenderer != null)
-                {
-                    lineRenderer.enabled = false;
-                }
+                SetLineEnabled(false);
             }
         }
     }
     
+    void SetLineEnabled(bool enabled)
+    {
+        LineRenderer lineRenderer = guidanceLineInstance?.GetComponent<LineRenderer>();
+        if (lineRenderer != null)
+            lineRenderer.enabled = enabled;
+    }
+    
     Transform FindNearestBrainrot()
     {
-        // Находим все брейнроты в сцене
         BrainrotObject[] allBrainrots = FindObjectsByType<BrainrotObject>(FindObjectsSortMode.None);
-        
         if (allBrainrots == null || allBrainrots.Length == 0)
-        {
             return null;
-        }
         
-        // Находим игрока
-        Transform playerTransform = null;
-        if (playerCarryController != null)
-        {
-            playerTransform = playerCarryController.GetPlayerTransform();
-        }
-        else
-        {
-            GameObject player = GameObject.FindGameObjectWithTag("Player");
-            if (player != null)
-            {
-                playerTransform = player.transform;
-            }
-        }
-        
+        Transform playerTransform = GetPlayerTransform();
         if (playerTransform == null)
-        {
             return null;
-        }
         
-        // Ищем ближайший брейнрот (не в руках, не размещенный)
         float minDistance = float.MaxValue;
         BrainrotObject closest = null;
-        
         foreach (BrainrotObject brainrot in allBrainrots)
         {
-            // Пропускаем брейнроты, которые уже в руках или размещены
             if (brainrot.IsCarried() || brainrot.IsPlaced())
                 continue;
-            
-            // Вычисляем расстояние до игрока
             float distance = Vector3.Distance(playerTransform.position, brainrot.transform.position);
-            
             if (distance < minDistance)
             {
                 minDistance = distance;
                 closest = brainrot;
             }
         }
-        
         return closest?.transform;
+    }
+    
+    /// <summary>Ближайший unfought брейнрот (не в руках, не размещён).</summary>
+    Transform FindNearestUnfoughtBrainrot()
+    {
+        BrainrotObject[] allBrainrots = FindObjectsByType<BrainrotObject>(FindObjectsSortMode.None);
+        if (allBrainrots == null || allBrainrots.Length == 0)
+            return null;
+        
+        Transform playerTransform = GetPlayerTransform();
+        if (playerTransform == null)
+            return null;
+        
+        float minDistance = float.MaxValue;
+        BrainrotObject closest = null;
+        foreach (BrainrotObject brainrot in allBrainrots)
+        {
+            if (!brainrot.IsUnfought() || brainrot.IsCarried() || brainrot.IsPlaced())
+                continue;
+            float distance = Vector3.Distance(playerTransform.position, brainrot.transform.position);
+            if (distance < minDistance)
+            {
+                minDistance = distance;
+                closest = brainrot;
+            }
+        }
+        return closest?.transform;
+    }
+    
+    Transform GetPlayerTransform()
+    {
+        if (playerCarryController != null)
+            return playerCarryController.GetPlayerTransform();
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        return player != null ? player.transform : null;
     }
     
     PlacementPanel FindNearestEmptyPlacement()
@@ -302,51 +242,52 @@ public class Guide : MonoBehaviour
             return null;
         }
         
-        // Находим игрока
-        Transform playerTransform = null;
-        if (playerCarryController != null)
-        {
-            playerTransform = playerCarryController.GetPlayerTransform();
-        }
-        else
-        {
-            GameObject player = GameObject.FindGameObjectWithTag("Player");
-            if (player != null)
-            {
-                playerTransform = player.transform;
-            }
-        }
-        
+        Transform playerTransform = GetPlayerTransform();
         if (playerTransform == null)
-        {
             return null;
-        }
         
-        // Ищем ближайшую пустую панель (GetPlacedBrainrot() == null)
         float minDistance = float.MaxValue;
         PlacementPanel closest = null;
-        
         foreach (PlacementPanel panel in allPanels)
         {
             if (panel == null)
                 continue;
-            
-            // Проверяем, пуста ли панель
-            BrainrotObject placedBrainrot = panel.GetPlacedBrainrot();
-            if (placedBrainrot != null)
-                continue; // Панель занята
-            
-            // Вычисляем расстояние до игрока
-            Vector3 panelPosition = panel.GetPlacementPosition();
-            float distance = Vector3.Distance(playerTransform.position, panelPosition);
-            
+            if (panel.GetPlacedBrainrot() != null)
+                continue;
+            float distance = Vector3.Distance(playerTransform.position, panel.GetPlacementPosition());
             if (distance < minDistance)
             {
                 minDistance = distance;
                 closest = panel;
             }
         }
+        return closest;
+    }
+    
+    /// <summary>Ближайшая панель размещения (пустая или занятая).</summary>
+    PlacementPanel FindNearestPlacement()
+    {
+        PlacementPanel[] allPanels = FindObjectsByType<PlacementPanel>(FindObjectsSortMode.None);
+        if (allPanels == null || allPanels.Length == 0)
+            return null;
         
+        Transform playerTransform = GetPlayerTransform();
+        if (playerTransform == null)
+            return null;
+        
+        float minDistance = float.MaxValue;
+        PlacementPanel closest = null;
+        foreach (PlacementPanel panel in allPanels)
+        {
+            if (panel == null)
+                continue;
+            float distance = Vector3.Distance(playerTransform.position, panel.GetPlacementPosition());
+            if (distance < minDistance)
+            {
+                minDistance = distance;
+                closest = panel;
+            }
+        }
         return closest;
     }
     

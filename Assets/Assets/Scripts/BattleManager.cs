@@ -66,6 +66,9 @@ public class BattleManager : MonoBehaviour
     private float bossHP;
     private Dictionary<GameObject, float> allyHP = new Dictionary<GameObject, float>();
     
+    // Кэш (не искать каждый кадр/удар)
+    private DamageNotifyManager _cachedDamageNotifyManager;
+    
     // События
     public System.Action<float> OnPlayerHPChanged;
     public System.Action<float> OnBossHPChanged;
@@ -163,10 +166,16 @@ public class BattleManager : MonoBehaviour
         // Очищаем HP союзников
         allyHP.Clear();
         
-        // Сброс счётчика урона для уведомления (сумма за этот бой)
-        var damageNotify = FindFirstObjectByType<DamageNotifyManager>();
-        if (damageNotify != null)
-            damageNotify.ResetTotalDamage();
+        // Сброс счётчика урона для уведомления
+        if (_cachedDamageNotifyManager == null)
+            _cachedDamageNotifyManager = FindFirstObjectByType<DamageNotifyManager>();
+        if (_cachedDamageNotifyManager != null)
+            _cachedDamageNotifyManager.ResetTotalDamage();
+        
+        // Закрыть дверь спавна при начале боя с боссом
+        var spawnButton = FindFirstObjectByType<BrainrotSpawnButton>();
+        if (spawnButton != null)
+            spawnButton.CloseDoor();
         
         // ВАЖНО: Находим BossController если он не назначен
         if (bossController == null)
@@ -331,12 +340,11 @@ public class BattleManager : MonoBehaviour
             bossHP = 0f;
         }
         
-        Debug.Log($"[BattleManager] Босс получил урон: {scaledDamage} (база: {damage}, scale применён: {applyLevelScaler}), HP: {oldHP} -> {bossHP}");
-        
-        // Уведомление об уроне (MainCanvas->OverflowUiContainer->DamageNotify->DamageText)
-        var damageNotifyManager = FindFirstObjectByType<DamageNotifyManager>();
-        if (damageNotifyManager != null)
-            damageNotifyManager.AddDamage((double)scaledDamage);
+        // Уведомление об уроне (кэш, не Find каждый удар)
+        if (_cachedDamageNotifyManager == null)
+            _cachedDamageNotifyManager = FindFirstObjectByType<DamageNotifyManager>();
+        if (_cachedDamageNotifyManager != null)
+            _cachedDamageNotifyManager.AddDamage((double)scaledDamage);
         
         // Обновляем сложность красных зон на основе текущего HP
         if (redZoneSpawner != null)
@@ -431,9 +439,10 @@ public class BattleManager : MonoBehaviour
         if (!isBattleActive) return;
         
         // Сразу скрыть уведомление об уроне
-        var damageNotifyManager = FindFirstObjectByType<DamageNotifyManager>();
-        if (damageNotifyManager != null)
-            damageNotifyManager.ResetTotalDamage();
+        if (_cachedDamageNotifyManager == null)
+            _cachedDamageNotifyManager = FindFirstObjectByType<DamageNotifyManager>();
+        if (_cachedDamageNotifyManager != null)
+            _cachedDamageNotifyManager.ResetTotalDamage();
         
         OnBossDefeated?.Invoke();
         

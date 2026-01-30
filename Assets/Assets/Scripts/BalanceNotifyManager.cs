@@ -2,14 +2,18 @@ using UnityEngine;
 using System.Collections;
 
 /// <summary>
-/// Менеджер для управления уведомлением о балансе
-/// Раз в 3 секунды суммирует доходы со всех EarnPanel и обновляет уведомление
+/// Менеджер уведомления о доходе с EarnPanel.
+/// Игрок поочерёдно наступает на панели — общая сумма дохода растёт и показывается в уведомлении.
+/// Если игрок не наступал на EarnPanel в течение заданного времени (по умолчанию 3 сек), общий доход обнуляется.
 /// </summary>
 public class BalanceNotifyManager : MonoBehaviour
 {
     [Header("Settings")]
-    [Tooltip("Интервал обновления суммы со всех EarnPanel (в секундах)")]
-    [SerializeField] private float updateInterval = 3f;
+    [Tooltip("Через сколько секунд без сбора обнулять общий доход")]
+    [SerializeField] private float idleResetSeconds = 3f;
+    
+    [Tooltip("Как часто проверять, нужно ли обнулить доход (сек)")]
+    [SerializeField] private float checkInterval = 0.5f;
     
     [Header("References")]
     [Tooltip("BalanceNotify GameObject (если не назначен, будет найден автоматически)")]
@@ -20,11 +24,13 @@ public class BalanceNotifyManager : MonoBehaviour
     [SerializeField] private bool debug = false;
     
     private BalanceNotifyAnimation notifyAnimation;
-    private Coroutine updateCoroutine;
-    private float lastUpdateTime = 0f;
+    private Coroutine checkCoroutine;
     
-    // ВАЖНО: Накопленная сумма заработанных денег за последние 3 секунды
-    private double accumulatedEarnedAmount = 0.0;
+    /// <summary> Накопленная сумма дохода с момента последнего обнуления (при каждом наступании на EarnPanel растёт). </summary>
+    private double accumulatedTotal = 0.0;
+    
+    /// <summary> Время последнего сбора с любой EarnPanel. </summary>
+    private float lastCollectTime = 0f;
     
     private void Awake()
     {
@@ -53,34 +59,27 @@ public class BalanceNotifyManager : MonoBehaviour
             balanceNotify.SetActive(true);
         }
         
-        // ВАЖНО: При старте накопленная сумма = 0
-        accumulatedEarnedAmount = 0.0;
+        accumulatedTotal = 0.0;
+        lastCollectTime = 0f;
         
-        // Запускаем корутину обновления при старте
-        if (updateCoroutine != null)
-        {
-            StopCoroutine(updateCoroutine);
-        }
-        updateCoroutine = StartCoroutine(UpdateBalanceNotificationCoroutine());
+        if (checkCoroutine != null)
+            StopCoroutine(checkCoroutine);
+        checkCoroutine = StartCoroutine(IdleResetCheckCoroutine());
     }
     
     private void OnEnable()
     {
-        // Запускаем корутину обновления при включении
-        if (updateCoroutine != null)
-        {
-            StopCoroutine(updateCoroutine);
-        }
-        updateCoroutine = StartCoroutine(UpdateBalanceNotificationCoroutine());
+        if (checkCoroutine != null)
+            StopCoroutine(checkCoroutine);
+        checkCoroutine = StartCoroutine(IdleResetCheckCoroutine());
     }
     
     private void OnDisable()
     {
-        // Останавливаем корутину при выключении
-        if (updateCoroutine != null)
+        if (checkCoroutine != null)
         {
-            StopCoroutine(updateCoroutine);
-            updateCoroutine = null;
+            StopCoroutine(checkCoroutine);
+            checkCoroutine = null;
         }
     }
     
@@ -130,84 +129,74 @@ public class BalanceNotifyManager : MonoBehaviour
     }
     
     /// <summary>
-    /// Корутина для периодического обновления уведомления
+    /// Корутина: если игрок не наступал на EarnPanel в течение idleResetSeconds — обнуляем общий доход и показываем 0.
     /// </summary>
-    private IEnumerator UpdateBalanceNotificationCoroutine()
+    private IEnumerator IdleResetCheckCoroutine()
     {
         if (debug)
-        {
-            Debug.Log("[BalanceNotifyManager] UpdateBalanceNotificationCoroutine запущена");
-        }
+            Debug.Log("[BalanceNotifyManager] IdleResetCheckCoroutine запущена");
         
         while (true)
         {
-            yield return new WaitForSeconds(updateInterval);
+            yield return new WaitForSeconds(checkInterval);
             
-            // ВАЖНО: Проверяем только один раз при первом запуске, затем используем кэш
-            if (notifyAnimation == null)
+            if (accumulatedTotal <= 0.0)
+                continue;
+            
+            float idle = Time.time - lastCollectTime;
+            if (idle >= idleResetSeconds)
             {
                 if (debug)
-                {
-                    Debug.LogWarning("[BalanceNotifyManager] notifyAnimation равен null, пытаемся найти...");
-                }
-                FindBalanceNotify();
-                // Если не найден, пропускаем этот цикл
+                    Debug.Log($"[BalanceNotifyManager] Нет сбора {idle:F1}с — обнуляем доход (было {accumulatedTotal})");
+                
+                accumulatedTotal = 0.0;
+                
                 if (notifyAnimation == null)
+                    FindBalanceNotify();
+                if (notifyAnimation != null)
                 {
-                    continue;
-                }
-            }
-            
-            // ВАЖНО: Показываем только накопленную сумму за последние 3 секунды
-            double earnedAmount = accumulatedEarnedAmount;
-            
-            // ВАЖНО: Показываем уведомление только если есть заработанные деньги
-            if (earnedAmount > 0)
-            {
-                try
-                {
-                    notifyAnimation.AnimateToAmount(0.0, earnedAmount);
-                    if (debug)
+                    try
                     {
-                        Debug.Log($"[BalanceNotifyManager] AnimateToAmount вызван для суммы: {earnedAmount}");
+                        notifyAnimation.AnimateToAmount(0.0, 0.0);
+                    }
+                    catch (System.Exception e)
+                    {
+                        Debug.LogError($"[BalanceNotifyManager] Ошибка при обнулении уведомления: {e.Message}");
                     }
                 }
-                catch (System.Exception e)
-                {
-                    Debug.LogError($"[BalanceNotifyManager] Ошибка при вызове AnimateToAmount: {e.Message}\n{e.StackTrace}");
-                }
             }
-            
-            // ВАЖНО: Обнуляем накопленную сумму после показа
-            accumulatedEarnedAmount = 0.0;
-            lastUpdateTime = Time.time;
         }
     }
     
     /// <summary>
-    /// Добавляет заработанную сумму в накопитель (вызывается из EarnPanel при сборе)
-    /// Уведомление будет показано через 3 секунды с накопленной суммой
+    /// Вызывается из EarnPanel (и др.) при сборе дохода. Добавляет сумму к общему доходу и сразу обновляет уведомление.
     /// </summary>
     public void UpdateNotificationImmediately(double amount)
     {
-        // ВАЖНО: Проверяем, что сумма валидна
         if (amount <= 0.0)
         {
             if (debug)
-            {
                 Debug.LogWarning($"[BalanceNotifyManager] UpdateNotificationImmediately вызван с невалидной суммой: {amount}, пропускаем");
-            }
             return;
         }
         
-        // ВАЖНО: Добавляем сумму в накопитель, а не показываем сразу
-        // Уведомление будет показано через 3 секунды с накопленной суммой
-        double oldAccumulated = accumulatedEarnedAmount;
-        accumulatedEarnedAmount += amount;
+        accumulatedTotal += amount;
+        lastCollectTime = Time.time;
         
-        if (debug)
+        if (notifyAnimation == null)
+            FindBalanceNotify();
+        if (notifyAnimation != null)
         {
-            Debug.Log($"[BalanceNotifyManager] Сумма добавлена: {amount}, было: {oldAccumulated}, стало: {accumulatedEarnedAmount}");
+            try
+            {
+                notifyAnimation.AnimateToAmount(0.0, accumulatedTotal);
+                if (debug)
+                    Debug.Log($"[BalanceNotifyManager] Сбор +{amount}, общая сумма: {accumulatedTotal}");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[BalanceNotifyManager] Ошибка при обновлении уведомления: {e.Message}");
+            }
         }
     }
     
